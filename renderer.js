@@ -1792,6 +1792,8 @@ function renderCard(merchant) {
   const showField = (field) => state.cardFields.includes(field);
   const installText = formatDisplayDateTime(merchant.installationDate) || 'Not set';
   const lifeCycle = calculateOrderLifeCycle(merchant.orderStartDate, merchant.installationDate);
+  const accountStatus = String(merchant.accountStatus || '').trim();
+  const accountStatusClass = accountStatus === '425' ? 'status-425' : accountStatus === '600' ? 'status-600' : 'status-other';
   return `
     <article class="card ${state.cardDensity === 'compact' ? 'compact-card' : ''} ${merchant.id === state.selectedId ? 'active' : ''} ${isSelected ? 'selected' : ''}" data-id="${merchant.id}" draggable="true">
       ${state.editMode ? `<label class="card-select"><input type="checkbox" data-select-id="${merchant.id}" ${isSelected ? 'checked' : ''} />Select</label>` : ''}
@@ -1809,6 +1811,7 @@ function renderCard(merchant) {
         <input type="checkbox" data-welcome-email-id="${merchant.id}" ${merchant.welcomeEmailSent ? 'checked' : ''} title="Welcome Email" aria-label="Welcome Email" />
         ${merchant.welcomeEmailSent ? '<strong>Sent</strong>' : ''}
       </label>` : ''}
+      ${accountStatus ? `<span class="account-status-badge card-account-status ${accountStatusClass}" title="Account Status">${escapeHtml(accountStatus)}</span>` : ''}
     </article>
   `;
 }
@@ -3237,6 +3240,8 @@ fields.taskName.addEventListener('change', () => {
   fields.stage.value = stageForTask(fields.taskName.value, fields.stage.value);
   renderMerchantSnapshot();
 });
+
+fields.accountStatus.addEventListener('input', renderMerchantSnapshot);
 
 el.contactsList.addEventListener('input', () => {
   markSaveButtonsDirty();

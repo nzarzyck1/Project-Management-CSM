@@ -715,6 +715,7 @@ body.compact-view .stage-column {
 }
 
 .card {
+  position: relative;
   margin: 4px;
   padding: 5px;
   border: 1px solid var(--line);
@@ -722,6 +723,15 @@ body.compact-view .stage-column {
   background: var(--panel);
   cursor: pointer;
   box-shadow: 0 6px 16px rgba(31, 41, 55, 0.06);
+}
+
+.card-account-status {
+  top: auto;
+  right: 5px;
+  bottom: 5px;
+  min-width: 36px;
+  padding: 2px 5px;
+  font-size: 10px;
 }
 
 body.compact-view .card {
