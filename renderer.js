@@ -452,6 +452,21 @@ function stageForTask(taskName, currentStage = 'Active') {
   return ['Cancelled', 'Completed'].includes(stage) ? 'Active' : stage;
 }
 
+function displayedAccountStatus(accountStatus, taskName) {
+  const task = normalizeTask(taskName);
+  if (task === 'Cancelled') return 'Cancelled';
+  if (task === 'Moved Off') return 'Moved Off';
+  return String(accountStatus || '').trim();
+}
+
+function accountStatusClass(accountStatus) {
+  const status = cleanKey(accountStatus);
+  if (status === '600') return 'status-600';
+  if (status === '425') return 'status-425';
+  if (['cancelled', 'moved off'].includes(status)) return 'status-terminal';
+  return 'status-other';
+}
+
 function normalizeProgrammingType(programmingType) {
   const cleaned = cleanKey(programmingType);
   const matched = PROGRAMMING_TYPES.find((candidate) => cleanKey(candidate) === cleaned);
@@ -1571,9 +1586,12 @@ function renderMerchantSnapshot() {
   const contacts = contactsForMerchant(merchant);
   const owner = contactByType(contacts, 'Owner') || contacts[0] || {};
   const rep = contactByType(contacts, 'Rep') || {};
-  const accountStatus = String(merchant.accountStatus || fields.accountStatus?.value || '').trim();
+  const accountStatus = displayedAccountStatus(
+    fields.accountStatus?.value || merchant.accountStatus,
+    fields.taskName?.value || merchant.taskName
+  );
   el.accountStatusBadge.textContent = accountStatus;
-  el.accountStatusBadge.className = `account-status-badge ${accountStatus === '425' ? 'status-425' : accountStatus === '600' ? 'status-600' : accountStatus ? 'status-other' : 'hidden'}`;
+  el.accountStatusBadge.className = `account-status-badge ${accountStatus ? accountStatusClass(accountStatus) : 'hidden'}`;
   renderSummaryList(el.controlInfoSummary, [
     ['Status', normalizeStage(merchant.stage || fields.stage?.value || 'Active')],
     ['Task', normalizeTask(merchant.taskName || fields.taskName?.value || 'CSM Approval')],
@@ -1792,8 +1810,8 @@ function renderCard(merchant) {
   const showField = (field) => state.cardFields.includes(field);
   const installText = formatDisplayDateTime(merchant.installationDate) || 'Not set';
   const lifeCycle = calculateOrderLifeCycle(merchant.orderStartDate, merchant.installationDate);
-  const accountStatus = String(merchant.accountStatus || '').trim();
-  const accountStatusClass = accountStatus === '425' ? 'status-425' : accountStatus === '600' ? 'status-600' : 'status-other';
+  const accountStatus = displayedAccountStatus(merchant.accountStatus, merchant.taskName);
+  const statusClass = accountStatusClass(accountStatus);
   return `
     <article class="card ${state.cardDensity === 'compact' ? 'compact-card' : ''} ${merchant.id === state.selectedId ? 'active' : ''} ${isSelected ? 'selected' : ''}" data-id="${merchant.id}" draggable="true">
       ${state.editMode ? `<label class="card-select"><input type="checkbox" data-select-id="${merchant.id}" ${isSelected ? 'checked' : ''} />Select</label>` : ''}
@@ -1811,7 +1829,7 @@ function renderCard(merchant) {
         <input type="checkbox" data-welcome-email-id="${merchant.id}" ${merchant.welcomeEmailSent ? 'checked' : ''} title="Welcome Email" aria-label="Welcome Email" />
         ${merchant.welcomeEmailSent ? '<strong>Sent</strong>' : ''}
       </label>` : ''}
-      ${accountStatus ? `<span class="account-status-badge card-account-status ${accountStatusClass}" title="Account Status">${escapeHtml(accountStatus)}</span>` : ''}
+      ${accountStatus ? `<span class="account-status-badge card-account-status ${statusClass}" title="Account Status">${escapeHtml(accountStatus)}</span>` : ''}
     </article>
   `;
 }

@@ -986,6 +986,11 @@ tr:hover {
   background: var(--panel);
 }
 
+.account-status-badge.status-terminal {
+  color: #f04438;
+  background: rgba(240, 68, 56, 0.12);
+}
+
 .merchant-snapshot legend {
   padding: 0 5px;
   color: var(--ink);

@@ -109,12 +109,22 @@ function mapRow(row) {
   const programmingType = hasValue(row, ['Order ID'])
     ? 'S4 Programming'
     : readCell(row, ['Programming Type', 'ProgrammingType']);
+  const importedAccountStatus = String(readCell(row, [
+    'Account Status',
+    'Account Status Code',
+    'AccountStatus',
+    'Merchant Status',
+    'Merchant Status Code',
+    'Status Code',
+    'Status'
+  ]) || '').trim();
+  const accountStatus = /^(425|600|cancelled|moved off)$/i.test(importedAccountStatus) ? importedAccountStatus : '';
 
   return {
     id: randomUUID(),
     dbaName,
     mid,
-    accountStatus: String(readCell(row, ['Account Status', 'AccountStatus', 'Merchant Status', 'Status Code']) || '').trim(),
+    accountStatus,
     taskName: readCell(row, ['Task Name']),
     stage: stage || 'Unassigned',
     lastNote: readCell(row, ['Last CSMTouch Point Note']),
