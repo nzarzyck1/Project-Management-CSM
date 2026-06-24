@@ -1,6 +1,6 @@
-const STAGES = ['Active', 'Stalled', 'Non-Responsive', 'Completed'];
-const TASKS = ['Stalled', 'Merchant Confirmation Form', 'Cancelled', 'Launch Control', 'CSM Approval', 'Programming', 'Schedule Presentation', 'Presentation', 'Ready for Install', 'Completed'];
-const TASK_ORDER_STORAGE_VERSION = '3';
+const STAGES = ['Active', 'Stalled', 'Non-Responsive', 'Cancelled', 'Completed'];
+const TASKS = ['Stalled', 'Merchant Confirmation Form', 'Cancelled', 'Moved Off', 'Launch Control', 'CSM Approval', 'Programming', 'Schedule Presentation', 'Presentation', 'Ready for Install', 'Completed'];
+const TASK_ORDER_STORAGE_VERSION = '4';
 const HIDDEN_TASKS_STORAGE_VERSION = '2';
 const DEFAULT_HIDDEN_TASKS = ['Stalled', 'Merchant Confirmation Form', 'Cancelled', 'Completed'];
 const PROGRAMMING_TYPES = ['', 'S4 Programming'];
@@ -441,6 +441,15 @@ function normalizeTask(taskName) {
   if (cleaned === 'menupresentation') return 'Presentation';
   const matched = TASKS.find((candidate) => cleanKey(candidate) === cleaned);
   return matched || 'CSM Approval';
+}
+
+function stageForTask(taskName, currentStage = 'Active') {
+  const task = normalizeTask(taskName);
+  if (task === 'Stalled') return 'Non-Responsive';
+  if (task === 'Cancelled') return 'Cancelled';
+  if (task === 'Completed') return 'Completed';
+  const stage = normalizeStage(currentStage);
+  return ['Cancelled', 'Completed'].includes(stage) ? 'Active' : stage;
 }
 
 function normalizeProgrammingType(programmingType) {
@@ -2103,7 +2112,7 @@ function formMerchant() {
     salesRepName: rep.name || fields.salesRepName.value.trim(),
     salesRepEmail: rep.email || fields.salesRepEmail.value.trim(),
     taskName,
-    stage: taskName === 'Completed' ? 'Completed' : normalizeStage(fields.stage.value),
+    stage: stageForTask(taskName, fields.stage.value),
     orderStartDate: fields.orderStartDate.value,
     menuPresentationDate: menuPresentationDateTime,
     installationDate: installationDateTime,
@@ -2232,7 +2241,7 @@ async function load() {
   state.merchants = compacted.map((merchant) => ({
     ...merchant,
     merchantName: cleanKey(merchant.merchantName) === cleanKey(merchant.dbaName) ? '' : merchant.merchantName,
-    stage: normalizeStage(merchant.stage),
+    stage: stageForTask(merchant.taskName, merchant.stage),
     taskName: normalizeTask(merchant.taskName),
     menuPresentationDate: normalizeInstallationValue(merchant.menuPresentationDate),
     installationDate: normalizeInstallationValue(merchant.installationDate),
@@ -2275,7 +2284,7 @@ async function importRows(rows) {
     accountNotes: validAccountNotes(merchant.accountNotes)
   })).map((merchant) => ({
     ...merchant,
-    stage: normalizeTask(merchant.taskName) === 'Completed' ? 'Completed' : merchant.stage
+    stage: stageForTask(merchant.taskName, merchant.stage)
   }));
   const nextMerchants = mergeImportedMerchants(beforeImport, normalizedRows);
   localStorage.setItem('lastImportUndo', JSON.stringify({
@@ -2331,9 +2340,11 @@ async function moveMerchantToStage(merchantId, stage) {
   merchant.stage = nextStage;
   merchant.taskName = nextStage === 'Completed'
     ? 'Completed'
-    : normalizeTask(merchant.taskName) === 'Completed'
-      ? 'CSM Approval'
-      : normalizeTask(merchant.taskName);
+    : nextStage === 'Cancelled'
+      ? 'Cancelled'
+      : ['Completed', 'Cancelled'].includes(normalizeTask(merchant.taskName))
+        ? 'CSM Approval'
+        : normalizeTask(merchant.taskName);
   merchant.updatedAt = new Date().toISOString();
   state.merchants = await window.crm.saveMerchants(state.merchants);
   renderViews();
@@ -2345,13 +2356,7 @@ async function moveMerchantToTask(merchantId, taskName) {
   const merchant = state.merchants.find((item) => item.id === merchantId);
   if (!merchant || normalizeTask(merchant.taskName) === nextTask) return;
   merchant.taskName = nextTask;
-  merchant.stage = nextTask === 'Completed'
-    ? 'Completed'
-    : nextTask === 'Stalled'
-      ? 'Stalled'
-      : normalizeStage(merchant.stage) === 'Completed'
-        ? 'Active'
-        : normalizeStage(merchant.stage);
+  merchant.stage = stageForTask(nextTask, merchant.stage);
   merchant.updatedAt = new Date().toISOString();
   state.merchants = await window.crm.saveMerchants(state.merchants);
   renderViews();
@@ -2413,11 +2418,10 @@ async function bulkUpdate(field, value) {
       ? {
           ...merchant,
           [field]: nextValue,
-          ...(field === 'taskName' && nextValue === 'Completed' ? { stage: 'Completed' } : {}),
-          ...(field === 'taskName' && nextValue === 'Stalled' ? { stage: 'Stalled' } : {}),
-          ...(field === 'taskName' && !['Completed', 'Stalled'].includes(nextValue) && normalizeStage(merchant.stage) === 'Completed' ? { stage: 'Active' } : {}),
+          ...(field === 'taskName' ? { stage: stageForTask(nextValue, merchant.stage) } : {}),
           ...(field === 'stage' && nextValue === 'Completed' ? { taskName: 'Completed' } : {}),
-          ...(field === 'stage' && nextValue !== 'Completed' && normalizeTask(merchant.taskName) === 'Completed' ? { taskName: 'CSM Approval' } : {}),
+          ...(field === 'stage' && nextValue === 'Cancelled' ? { taskName: 'Cancelled' } : {}),
+          ...(field === 'stage' && !['Completed', 'Cancelled'].includes(nextValue) && ['Completed', 'Cancelled'].includes(normalizeTask(merchant.taskName)) ? { taskName: 'CSM Approval' } : {}),
           updatedAt: now
         }
       : merchant
@@ -3227,6 +3231,11 @@ el.deleteBtn.addEventListener('click', async () => {
     renderEmail();
     renderOrderEmail();
   });
+});
+
+fields.taskName.addEventListener('change', () => {
+  fields.stage.value = stageForTask(fields.taskName.value, fields.stage.value);
+  renderMerchantSnapshot();
 });
 
 el.contactsList.addEventListener('input', () => {
