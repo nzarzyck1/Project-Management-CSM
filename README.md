@@ -1,6 +1,6 @@
 # LaunchPad
 
-A Windows desktop CRM for tracking merchant onboarding projects with optional Supabase synchronization.
+A Windows desktop CRM for tracking merchant onboarding projects with Supabase synchronization.
 
 ## What It Does
 
@@ -17,7 +17,14 @@ A Windows desktop CRM for tracking merchant onboarding projects with optional Su
   - Sales rep name and email
 - Shows merchant projects in both Kanban and list views.
 - Generates copy-ready email text from templates using merchant/project data.
-- Stores data locally in the app user-data folder as `merchants.json`.
+- Stores each approved user's merchant data in a separate Supabase account scope.
+- Keeps a per-user local cache for temporary connectivity failures.
+
+## Supabase Setup
+
+Run the complete [`supabase/launchpad_setup.sql`](supabase/launchpad_setup.sql) file in the Supabase SQL Editor after database changes. The script is safe to run again.
+
+New users sign up in LaunchPad, verify their email through Supabase, and then wait for approval. The owner account can open **... > Manage Users** to grant or revoke access. Row Level Security keeps every user's merchant records isolated from every other user, including the owner.
 
 ## Run From Source
 

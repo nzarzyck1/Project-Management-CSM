@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('crm', {
   signIn: (email, password) => ipcRenderer.invoke('auth:signIn', { email, password }),
   signUp: (email, password) => ipcRenderer.invoke('auth:signUp', { email, password }),
   signOut: () => ipcRenderer.invoke('auth:signOut'),
+  listUsers: () => ipcRenderer.invoke('auth:listUsers'),
+  setUserApproval: (userId, approved) => ipcRenderer.invoke('auth:setApproval', { userId, approved }),
   importExcel: () => ipcRenderer.invoke('excel:import'),
   importSample: () => ipcRenderer.invoke('excel:importSample'),
   importContactsFromImage: () => ipcRenderer.invoke('contacts:importImage'),

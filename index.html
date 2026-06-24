@@ -11,6 +11,7 @@
       <div class="app-brand">
         <img class="app-logo app-logo-light" src="assets/launchpad-logo-light.png" alt="LaunchPad Project Management" />
         <img class="app-logo app-logo-dark" src="assets/launchpad-logo-dark.png" alt="LaunchPad Project Management" />
+        <span id="brandUser" class="brand-user"></span>
       </div>
       <div class="header-center">
         <div id="summaryBar" class="summary-bar"></div>
@@ -23,11 +24,7 @@
         <section class="sync-bar" id="syncBar">
           <button id="calendarViewBtn" class="secondary" type="button">Calendar</button>
           <button id="menuBuilderBtn" class="secondary" type="button">Menu Builder</button>
-          <strong id="syncStatus">Local Mode</strong>
-          <input id="authEmail" type="email" placeholder="Supabase email" autocomplete="username" />
-          <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
-          <button id="signInBtn" type="button">Sign In</button>
-          <button id="signUpBtn" class="secondary" type="button">Sign Up</button>
+          <strong id="syncStatus" class="hidden">Local Mode</strong>
           <button id="signOutBtn" class="secondary hidden" type="button">Sign Out</button>
           <button id="syncNowBtn" class="secondary" type="button">Sync Now</button>
         </section>
@@ -66,6 +63,7 @@
             <button id="hiddenTasksBtn" class="secondary" type="button">Show Hidden Tasks</button>
             <button id="dataFolderBtn" class="secondary" type="button">Data folder</button>
             <button id="checkUpdatesBtn" class="secondary" type="button">Check for Updates</button>
+            <button id="manageUsersBtn" class="secondary hidden" type="button">Manage Users</button>
           </div>
         </div>
       </div>
@@ -117,6 +115,13 @@
             <button id="savePanelTopBtn" type="button">💾 Save</button>
             <button id="importContactsBtn" class="secondary" type="button">Import</button>
             <button id="closePanelBtn" class="secondary" type="button">Close</button>
+            <div class="menu-wrap">
+              <button id="merchantMenuBtn" class="secondary menu-button" type="button" aria-label="Merchant actions" aria-expanded="false">...</button>
+              <div id="merchantMenu" class="app-menu merchant-menu hidden">
+                <button id="mergeMerchantBtn" class="secondary" type="button">Merge</button>
+                <button id="deleteMerchantMenuBtn" class="secondary danger" type="button">Delete</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -151,7 +156,11 @@
             <label>Task Name<select id="taskName"></select></label>
             <label>DBA Name<input id="dbaName" required /></label>
             <label>MID<input id="mid" /></label>
-            <label>Account Status<input id="accountStatus" inputmode="numeric" maxlength="3" placeholder="425 or 600" /></label>
+            <label>Account Status<select id="accountStatus">
+              <option value=""></option>
+              <option value="425">425</option>
+              <option value="600">600</option>
+            </select></label>
             <input type="hidden" id="merchantName" />
             <input type="hidden" id="merchantEmail" />
             <input type="hidden" id="salesRepName" />
@@ -175,7 +184,6 @@
             <label>Last CSM Touch Point Note<textarea id="lastNote" rows="4"></textarea></label>
             <div class="form-actions">
               <button id="saveMerchantBtn" type="submit">💾 Save Merchant</button>
-              <button type="button" id="deleteBtn" class="danger secondary">Delete</button>
             </div>
           </form>
         </div>
@@ -346,6 +354,42 @@
         </div>
       </aside>
     </main>
+
+    <section id="authGate" class="auth-gate hidden" aria-label="LaunchPad sign in">
+      <div class="auth-card">
+        <img class="auth-logo app-logo-light" src="assets/launchpad-logo-light.png" alt="LaunchPad" />
+        <img class="auth-logo app-logo-dark" src="assets/launchpad-logo-dark.png" alt="LaunchPad" />
+        <h2>Sign in to LaunchPad</h2>
+        <input id="authEmail" type="email" placeholder="Email" autocomplete="username" />
+        <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
+        <div class="form-actions">
+          <button id="signInBtn" type="button">Sign In</button>
+          <button id="signUpBtn" class="secondary" type="button">Sign Up</button>
+          <button id="authSignOutBtn" class="secondary hidden" type="button">Sign Out</button>
+        </div>
+        <p id="authMessage">New accounts require email verification and owner approval.</p>
+      </div>
+    </section>
+
+    <dialog id="mergeDialog" class="merge-dialog">
+      <form method="dialog">
+        <h2>Merge Merchant</h2>
+        <p>Move Order Info, Contacts, and Account Notes into another account.</p>
+        <label>Merge into<select id="mergeTargetSelect"></select></label>
+        <div class="form-actions">
+          <button id="confirmMergeBtn" type="button">Merge</button>
+          <button class="secondary" value="cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="usersDialog" class="merge-dialog">
+      <form method="dialog">
+        <h2>User Approvals</h2>
+        <div id="usersList" class="users-list"></div>
+        <div class="form-actions"><button class="secondary" value="cancel">Close</button></div>
+      </form>
+    </dialog>
 
     <div id="toast" class="toast hidden"></div>
     <script src="renderer.js"></script>

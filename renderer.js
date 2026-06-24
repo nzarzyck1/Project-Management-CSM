@@ -1,6 +1,6 @@
 const STAGES = ['Active', 'Stalled', 'Non-Responsive', 'Cancelled', 'Completed'];
-const TASKS = ['Stalled', 'Merchant Confirmation Form', 'Cancelled', 'Moved Off', 'Launch Control', 'CSM Approval', 'Programming', 'Schedule Presentation', 'Presentation', 'Ready for Install', 'Completed'];
-const TASK_ORDER_STORAGE_VERSION = '4';
+const TASKS = ['Cancelled', 'Stalled', 'Moved Off', 'Merchant Confirmation Form', 'Launch Control', 'CSM Approval', 'Programming', 'Schedule Presentation', 'Presentation', 'Ready for Install', 'Completed'];
+const TASK_ORDER_STORAGE_VERSION = '5';
 const HIDDEN_TASKS_STORAGE_VERSION = '2';
 const DEFAULT_HIDDEN_TASKS = ['Stalled', 'Merchant Confirmation Form', 'Cancelled', 'Completed'];
 const PROGRAMMING_TYPES = ['', 'S4 Programming'];
@@ -143,11 +143,18 @@ const el = {
   calendarViewBtn: document.querySelector('#calendarViewBtn'),
   menuBuilderBtn: document.querySelector('#menuBuilderBtn'),
   syncStatus: document.querySelector('#syncStatus'),
+  brandUser: document.querySelector('#brandUser'),
+  authGate: document.querySelector('#authGate'),
+  authMessage: document.querySelector('#authMessage'),
   authEmail: document.querySelector('#authEmail'),
   authPassword: document.querySelector('#authPassword'),
   signInBtn: document.querySelector('#signInBtn'),
   signUpBtn: document.querySelector('#signUpBtn'),
   signOutBtn: document.querySelector('#signOutBtn'),
+  authSignOutBtn: document.querySelector('#authSignOutBtn'),
+  manageUsersBtn: document.querySelector('#manageUsersBtn'),
+  usersDialog: document.querySelector('#usersDialog'),
+  usersList: document.querySelector('#usersList'),
   syncNowBtn: document.querySelector('#syncNowBtn'),
   viewTabs: document.querySelector('#viewTabs'),
   favoriteViewBtn: document.querySelector('#favoriteViewBtn'),
@@ -192,9 +199,15 @@ const el = {
   addContactBtn: document.querySelector('#addContactBtn'),
   contactsList: document.querySelector('#contactsList'),
   closePanelBtn: document.querySelector('#closePanelBtn'),
+  merchantMenuBtn: document.querySelector('#merchantMenuBtn'),
+  merchantMenu: document.querySelector('#merchantMenu'),
+  mergeMerchantBtn: document.querySelector('#mergeMerchantBtn'),
+  deleteMerchantMenuBtn: document.querySelector('#deleteMerchantMenuBtn'),
+  mergeDialog: document.querySelector('#mergeDialog'),
+  mergeTargetSelect: document.querySelector('#mergeTargetSelect'),
+  confirmMergeBtn: document.querySelector('#confirmMergeBtn'),
   savePanelTopBtn: document.querySelector('#savePanelTopBtn'),
   saveMerchantBtn: document.querySelector('#saveMerchantBtn'),
-  deleteBtn: document.querySelector('#deleteBtn'),
   templateSelect: document.querySelector('#templateSelect'),
   customNote: document.querySelector('#customNote'),
   customNoteWrap: document.querySelector('#customNoteWrap'),
@@ -456,7 +469,15 @@ function displayedAccountStatus(accountStatus, taskName) {
   const task = normalizeTask(taskName);
   if (task === 'Cancelled') return 'Cancelled';
   if (task === 'Moved Off') return 'Moved Off';
-  return String(accountStatus || '').trim();
+  const savedStatus = String(accountStatus || '').trim();
+  if (savedStatus) return savedStatus;
+  return TASKS.indexOf(task) >= TASKS.indexOf('Programming') ? '600' : '';
+}
+
+function automaticAccountStatus(accountStatus, taskName) {
+  const savedStatus = String(accountStatus || '').trim();
+  if (savedStatus) return savedStatus;
+  return TASKS.indexOf(normalizeTask(taskName)) >= TASKS.indexOf('Programming') ? '600' : '';
 }
 
 function accountStatusClass(accountStatus) {
@@ -586,6 +607,7 @@ function mergeMerchant(existing, incoming) {
     ...existing,
     ...incoming,
     id: existing.id || incoming.id,
+    recordSource: existing.recordSource || incoming.recordSource || 'import',
     createdAt: existing.createdAt || incoming.createdAt,
     dbaName: incoming.dbaName || existing.dbaName,
     merchantName: incoming.merchantName || existing.merchantName,
@@ -631,9 +653,15 @@ function mergeImportedMerchants(existingMerchants, importedMerchants) {
         byKey.set(key, merchant);
         return;
       }
-      const existingCompleted = normalizeTask(existing.taskName) === 'Completed' || normalizeStage(existing.stage) === 'Completed';
-      const incomingCompleted = normalizeTask(merchant.taskName) === 'Completed' || normalizeStage(merchant.stage) === 'Completed';
-      byKey.set(key, existingCompleted && !incomingCompleted ? existing : mergeMerchant(existing, merchant));
+      const existingTask = normalizeTask(existing.taskName);
+      const protectedTask = ['Stalled', 'Cancelled', 'Completed'].includes(existingTask);
+      const merged = mergeMerchant(existing, merchant);
+      byKey.set(key, protectedTask ? {
+        ...merged,
+        taskName: existing.taskName,
+        stage: existing.stage,
+        accountStatus: existing.accountStatus
+      } : merged);
     });
 
   return [...byKey.values()];
@@ -1808,7 +1836,7 @@ function renderProgrammingKanban() {
 function renderCard(merchant) {
   const isSelected = state.selectedIds.has(merchant.id);
   const showField = (field) => state.cardFields.includes(field);
-  const installText = formatDisplayDateTime(merchant.installationDate) || 'Not set';
+  const installText = formatCardDateTime(merchant.installationDate) || 'Not set';
   const lifeCycle = calculateOrderLifeCycle(merchant.orderStartDate, merchant.installationDate);
   const accountStatus = displayedAccountStatus(merchant.accountStatus, merchant.taskName);
   const statusClass = accountStatusClass(accountStatus);
@@ -1941,6 +1969,7 @@ function resetForm(openPanel = true) {
   fields.goLiveDate.value = '';
   fields.orderLifeCycle.value = '';
   fields.programmingType.value = '';
+  el.deleteMerchantMenuBtn.classList.remove('hidden');
   renderContacts([]);
   renderAccountNotes([]);
   orderEl.accountNoteInput.value = '';
@@ -1961,7 +1990,7 @@ function fillForm(merchant, openPanel = true) {
   fields.merchantId.value = merchant.id || '';
   fields.dbaName.value = merchant.dbaName || '';
   fields.mid.value = merchant.mid || '';
-  fields.accountStatus.value = merchant.accountStatus || '';
+  fields.accountStatus.value = automaticAccountStatus(merchant.accountStatus, merchant.taskName);
   fields.merchantName.value = merchant.merchantName || '';
   fields.merchantEmail.value = merchant.merchantEmail || '';
   fields.salesRepName.value = merchant.salesRepName || '';
@@ -1977,6 +2006,7 @@ function fillForm(merchant, openPanel = true) {
   fields.orderLifeCycle.value = calculateOrderLifeCycle(fields.orderStartDate.value, combinedInstallationDateTime());
   fields.programmingType.value = normalizeProgrammingType(merchant.programmingType);
   fields.lastNote.value = merchant.lastNote || '';
+  el.deleteMerchantMenuBtn.classList.toggle('hidden', merchant.recordSource !== 'manual');
   renderContacts(contactsForMerchant(merchant));
   renderAccountNotes(merchant.accountNotes || []);
   orderEl.accountNoteInput.value = '';
@@ -2089,6 +2119,16 @@ function formatDisplayDateTime(value) {
   });
 }
 
+function formatCardDateTime(value) {
+  const normalized = normalizeDateTimeInput(value);
+  if (!normalized) return '';
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return '';
+  const datePart = date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+  if (!String(value || '').includes('T')) return datePart;
+  return `${datePart} ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+}
+
 function formatInstallationDateForTemplate(installationDate) {
   const normalized = normalizeDateInput(installationDate);
   if (!normalized) return '';
@@ -2125,9 +2165,10 @@ function formMerchant() {
   return {
     ...(existing || {}),
     id: fields.merchantId.value || undefined,
+    recordSource: existing?.recordSource || 'manual',
     dbaName: fields.dbaName.value.trim(),
     mid: fields.mid.value.trim(),
-    accountStatus: fields.accountStatus.value.trim(),
+    accountStatus: automaticAccountStatus(fields.accountStatus.value, taskName),
     merchantName: owner.name || fields.merchantName.value.trim(),
     merchantEmail: owner.email || fields.merchantEmail.value.trim(),
     salesRepName: rep.name || fields.salesRepName.value.trim(),
@@ -2239,14 +2280,20 @@ function renderEmail() {
 async function refreshAuthStatus() {
   try {
     const status = await window.crm.authStatus();
-    el.syncStatus.textContent = status.signedIn
-      ? `Online: ${status.email}`
-      : 'Local Mode';
+    el.syncStatus.textContent = status.signedIn ? 'Online' : 'Signed Out';
+    el.brandUser.textContent = status.signedIn ? status.email : '';
+    el.signOutBtn.title = status.signedIn ? `Signed in as ${status.email}` : '';
+    el.authGate.classList.toggle('hidden', status.signedIn && status.approved);
+    el.authMessage.textContent = status.signedIn && !status.approved
+      ? 'Your email is verified. This account is waiting for owner approval.'
+      : 'New accounts require email verification and owner approval.';
     el.authEmail.classList.toggle('hidden', status.signedIn);
     el.authPassword.classList.toggle('hidden', status.signedIn);
     el.signInBtn.classList.toggle('hidden', status.signedIn);
     el.signUpBtn.classList.toggle('hidden', status.signedIn);
+    el.authSignOutBtn.classList.toggle('hidden', !status.signedIn);
     el.signOutBtn.classList.toggle('hidden', !status.signedIn);
+    el.manageUsersBtn.classList.toggle('hidden', !status.isAdmin);
     return status;
   } catch (error) {
     console.error(error);
@@ -2256,14 +2303,22 @@ async function refreshAuthStatus() {
 }
 
 async function load() {
-  await refreshAuthStatus();
+  const authStatus = await refreshAuthStatus();
+  if (!authStatus.signedIn || !authStatus.approved) {
+    state.merchants = [];
+    setPanelOpen(false);
+    renderViews();
+    return;
+  }
   const loaded = await window.crm.loadMerchants();
   const compacted = compactMerchants(loaded);
   state.merchants = compacted.map((merchant) => ({
     ...merchant,
+    recordSource: merchant.recordSource || 'import',
     merchantName: cleanKey(merchant.merchantName) === cleanKey(merchant.dbaName) ? '' : merchant.merchantName,
     stage: stageForTask(merchant.taskName, merchant.stage),
     taskName: normalizeTask(merchant.taskName),
+    accountStatus: automaticAccountStatus(merchant.accountStatus, merchant.taskName),
     menuPresentationDate: normalizeInstallationValue(merchant.menuPresentationDate),
     installationDate: normalizeInstallationValue(merchant.installationDate),
     goLiveDate: normalizeDateInput(merchant.goLiveDate),
@@ -2274,6 +2329,7 @@ async function load() {
   const needsSave = state.merchants.length !== loaded.length
     || state.merchants.some((merchant, index) => merchant.stage !== compacted[index]?.stage)
     || state.merchants.some((merchant, index) => merchant.taskName !== compacted[index]?.taskName)
+    || state.merchants.some((merchant, index) => merchant.accountStatus !== compacted[index]?.accountStatus)
     || state.merchants.some((merchant, index) => merchant.menuPresentationDate !== compacted[index]?.menuPresentationDate)
     || state.merchants.some((merchant, index) => merchant.installationDate !== compacted[index]?.installationDate)
     || state.merchants.some((merchant, index) => merchant.goLiveDate !== compacted[index]?.goLiveDate)
@@ -2297,6 +2353,7 @@ async function importRows(rows) {
     ...merchant,
     stage: normalizeStage(merchant.stage),
     taskName: normalizeTask(merchant.taskName),
+    accountStatus: automaticAccountStatus(merchant.accountStatus, merchant.taskName),
     menuPresentationDate: normalizeInstallationValue(merchant.menuPresentationDate),
     installationDate: normalizeInstallationValue(merchant.installationDate),
     goLiveDate: normalizeDateInput(merchant.goLiveDate),
@@ -2378,6 +2435,7 @@ async function moveMerchantToTask(merchantId, taskName) {
   if (!merchant || normalizeTask(merchant.taskName) === nextTask) return;
   merchant.taskName = nextTask;
   merchant.stage = stageForTask(nextTask, merchant.stage);
+  merchant.accountStatus = automaticAccountStatus(merchant.accountStatus, nextTask);
   merchant.updatedAt = new Date().toISOString();
   state.merchants = await window.crm.saveMerchants(state.merchants);
   renderViews();
@@ -2457,16 +2515,21 @@ async function bulkUpdate(field, value) {
 }
 
 async function bulkDelete() {
-  const merchantIds = selectedIdsArray();
-  if (!merchantIds.length) return;
-  if (!confirm(`Delete ${merchantIds.length} selected merchant${merchantIds.length === 1 ? '' : 's'} from the CRM?`)) return;
+  const selected = selectedIdsArray();
+  const merchantIds = selected.filter((merchantId) => state.merchants.find((merchant) => merchant.id === merchantId)?.recordSource === 'manual');
+  const protectedCount = selected.length - merchantIds.length;
+  if (!merchantIds.length) {
+    showToast('Imported accounts cannot be deleted. Use Undo Last Import.');
+    return;
+  }
+  if (!confirm(`Delete ${merchantIds.length} manually added merchant${merchantIds.length === 1 ? '' : 's'}?`)) return;
   const deleteIds = new Set(merchantIds);
   state.merchants = state.merchants.filter((merchant) => !deleteIds.has(merchant.id));
   state.merchants = await window.crm.saveMerchants(state.merchants);
   state.selectedIds.clear();
   if (state.selectedId && deleteIds.has(state.selectedId)) resetForm(false);
   renderViews();
-  showToast(`${merchantIds.length} merchant${merchantIds.length === 1 ? '' : 's'} deleted.`);
+  showToast(`${merchantIds.length} merchant${merchantIds.length === 1 ? '' : 's'} deleted.${protectedCount ? ` ${protectedCount} imported account${protectedCount === 1 ? '' : 's'} kept.` : ''}`);
 }
 
 function toggleAppMenu(isOpen = el.appMenu.classList.contains('hidden')) {
@@ -2492,6 +2555,7 @@ darkModeToggle?.addEventListener('click', () => {
 document.addEventListener('click', (event) => {
   if (event.target.closest('.menu-wrap')) return;
   closeAppMenu();
+  closeMerchantMenu();
 });
 
 el.importBtn.addEventListener('click', async () => {
@@ -2538,10 +2602,10 @@ async function authAction(action) {
     return;
   }
   try {
-    await action(email, password);
+    const result = await action(email, password);
     el.authPassword.value = '';
     await load();
-    showToast('Supabase connected.');
+    showToast(result.approved ? 'Supabase connected.' : 'Account created or signed in. Approval may still be pending.');
   } catch (error) {
     console.error(error);
     showToast(error.message || 'Supabase sign-in failed.');
@@ -2553,7 +2617,40 @@ el.signUpBtn.addEventListener('click', () => authAction(window.crm.signUp));
 el.signOutBtn.addEventListener('click', async () => {
   await window.crm.signOut();
   await load();
-  showToast('Signed out. Local data loaded.');
+  showToast('Signed out.');
+});
+el.authSignOutBtn.addEventListener('click', () => el.signOutBtn.click());
+
+async function renderUsers() {
+  const users = await window.crm.listUsers();
+  el.usersList.innerHTML = users.map((user) => `
+    <div class="user-approval-row">
+      <span><strong>${escapeHtml(user.email)}</strong>${user.is_admin ? '<small>Owner</small>' : ''}</span>
+      <label><input type="checkbox" data-user-approval="${escapeHtml(user.user_id)}" ${user.approved ? 'checked' : ''} ${user.is_admin ? 'disabled' : ''} />Approved</label>
+    </div>
+  `).join('') || '<div class="empty">No users found.</div>';
+}
+
+el.manageUsersBtn.addEventListener('click', async () => {
+  closeAppMenu();
+  try {
+    await renderUsers();
+    el.usersDialog.showModal();
+  } catch (error) {
+    showToast(error.message || 'Could not load users. Run the latest Supabase setup SQL first.');
+  }
+});
+
+el.usersList.addEventListener('change', async (event) => {
+  const input = event.target.closest('[data-user-approval]');
+  if (!input) return;
+  try {
+    await window.crm.setUserApproval(input.dataset.userApproval, input.checked);
+    showToast(input.checked ? 'User approved.' : 'User access revoked.');
+  } catch (error) {
+    input.checked = !input.checked;
+    showToast(error.message || 'Could not update approval.');
+  }
 });
 el.syncNowBtn.addEventListener('click', async () => {
   await load();
@@ -3210,6 +3307,64 @@ el.closePanelBtn.addEventListener('click', () => {
   setPanelOpen(false);
 });
 
+function closeMerchantMenu() {
+  el.merchantMenu.classList.add('hidden');
+  el.merchantMenuBtn.setAttribute('aria-expanded', 'false');
+}
+
+el.merchantMenuBtn.addEventListener('click', (event) => {
+  event.stopPropagation();
+  const opening = el.merchantMenu.classList.contains('hidden');
+  el.merchantMenu.classList.toggle('hidden', !opening);
+  el.merchantMenuBtn.setAttribute('aria-expanded', String(opening));
+});
+
+el.deleteMerchantMenuBtn.addEventListener('click', async () => {
+  closeMerchantMenu();
+  const merchant = selectedMerchant();
+  if (!merchant) return;
+  if (merchant.recordSource !== 'manual') {
+    showToast('Imported accounts cannot be deleted. Use Undo Last Import.');
+    return;
+  }
+  await deleteMerchant(merchant.id);
+});
+
+el.mergeMerchantBtn.addEventListener('click', () => {
+  closeMerchantMenu();
+  const source = selectedMerchant();
+  if (!source) return;
+  const targets = state.merchants.filter((merchant) => merchant.id !== source.id);
+  if (!targets.length) {
+    showToast('There is no other account available to merge into.');
+    return;
+  }
+  el.mergeTargetSelect.innerHTML = targets
+    .sort((a, b) => String(a.dbaName || '').localeCompare(String(b.dbaName || '')))
+    .map((merchant) => `<option value="${escapeHtml(merchant.id)}">${escapeHtml(merchant.dbaName || 'Unnamed')} (${escapeHtml(merchant.mid || 'No MID')})</option>`)
+    .join('');
+  el.mergeDialog.showModal();
+});
+
+el.confirmMergeBtn.addEventListener('click', async () => {
+  const source = selectedMerchant();
+  const target = state.merchants.find((merchant) => merchant.id === el.mergeTargetSelect.value);
+  if (!source || !target || source.id === target.id) return;
+  const mergedTarget = {
+    ...target,
+    orderInfo: { ...(target.orderInfo || {}), ...(source.orderInfo || {}) },
+    contacts: mergeContacts(target.contacts, source.contacts),
+    accountNotes: mergeAccountNotes(target.accountNotes, source.accountNotes),
+    updatedAt: new Date().toISOString()
+  };
+  state.merchants = state.merchants.filter((merchant) => merchant.id !== source.id)
+    .map((merchant) => merchant.id === target.id ? mergedTarget : merchant);
+  state.merchants = await window.crm.saveMerchants(state.merchants);
+  el.mergeDialog.close();
+  fillForm(state.merchants.find((merchant) => merchant.id === target.id));
+  showToast('Accounts merged. General information from the destination account was kept.');
+});
+
 async function saveMerchantFromForm() {
   const merchant = formMerchant();
   state.merchants = await window.crm.upsertMerchant(merchant);
@@ -3232,14 +3387,6 @@ el.savePanelTopBtn.addEventListener('click', async () => {
   else await saveMerchantFromForm();
 });
 
-el.deleteBtn.addEventListener('click', async () => {
-  if (!state.selectedId) {
-    resetForm();
-    return;
-  }
-  await deleteMerchant(state.selectedId);
-});
-
 [el.templateSelect, el.customNote, ...Object.values(fields)].forEach((input) => {
   input.addEventListener('input', () => {
     if (Object.values(fields).includes(input)) markSaveButtonsDirty();
@@ -3256,6 +3403,7 @@ el.deleteBtn.addEventListener('click', async () => {
 
 fields.taskName.addEventListener('change', () => {
   fields.stage.value = stageForTask(fields.taskName.value, fields.stage.value);
+  if (!fields.accountStatus.value) fields.accountStatus.value = automaticAccountStatus('', fields.taskName.value);
   renderMerchantSnapshot();
 });
 

@@ -25,6 +25,8 @@ const ALLOWED_EXTERNAL_URLS = new Set([
 const SUPABASE_URL = 'https://wdsshmqsqknttytfchpz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable__OJywYO4yvTZFzxYeD9GHA_r9OgwXdq';
 const SUPABASE_TABLE = 'launchpad_merchants';
+const SUPABASE_PROFILE_TABLE = 'launchpad_profiles';
+const OWNER_EMAIL = 'ngzarzycki@gmail.com';
 
 let mainWindow;
 let updateCheckInProgress = false;
@@ -47,6 +49,10 @@ function portableDataPath() {
 
 function userDataPath() {
   return path.join(app.getPath('userData'), 'merchants.json');
+}
+
+function userCachePath(userId) {
+  return path.join(app.getPath('userData'), 'users', String(userId || 'unknown'), 'merchants.json');
 }
 
 function dataPath() {
@@ -125,6 +131,7 @@ function mapRow(row) {
     dbaName,
     mid,
     accountStatus,
+    recordSource: 'import',
     taskName: readCell(row, ['Task Name']),
     stage: stage || 'Unassigned',
     lastNote: readCell(row, ['Last CSMTouch Point Note']),
@@ -259,6 +266,21 @@ async function writeMerchants(merchants) {
   return merchants;
 }
 
+async function readUserCache(userId) {
+  try {
+    return JSON.parse(await fs.readFile(userCachePath(userId), 'utf8'));
+  } catch {
+    return [];
+  }
+}
+
+async function writeUserCache(userId, merchants) {
+  const cachePath = userCachePath(userId);
+  await fs.mkdir(path.dirname(cachePath), { recursive: true });
+  await fs.writeFile(cachePath, JSON.stringify(merchants, null, 2));
+  return merchants;
+}
+
 async function readSession() {
   try {
     return JSON.parse(await fs.readFile(sessionPath(), 'utf8'));
@@ -381,7 +403,28 @@ function merchantFromRow(row) {
 
 async function isOnlineSignedIn() {
   const session = await currentSession();
-  return Boolean(sessionAccessToken(session) && sessionUser(session)?.id);
+  if (!sessionAccessToken(session) || !sessionUser(session)?.id) return false;
+  const profile = await currentUserProfile(session);
+  return Boolean(profile.approved);
+}
+
+async function currentUserProfile(session = null) {
+  const activeSession = session || await currentSession();
+  const user = sessionUser(activeSession);
+  if (!user?.id) return { approved: false, isAdmin: false, email: '' };
+  try {
+    const rows = await supabaseFetch(`/rest/v1/${SUPABASE_PROFILE_TABLE}?user_id=eq.${encodeURIComponent(user.id)}&select=user_id,email,approved,is_admin`, { method: 'GET' });
+    const profile = rows?.[0];
+    return {
+      approved: Boolean(profile?.approved),
+      isAdmin: Boolean(profile?.is_admin),
+      email: profile?.email || user.email || ''
+    };
+  } catch (error) {
+    console.error(error);
+    const isOwner = String(user.email || '').toLowerCase() === OWNER_EMAIL;
+    return { approved: isOwner, isAdmin: isOwner, email: user.email || '' };
+  }
 }
 
 async function readOnlineMerchants() {
@@ -410,28 +453,32 @@ async function writeOnlineMerchants(merchants) {
       body: JSON.stringify(merchants.map((merchant) => merchantRow(merchant, userId)))
     });
   }
-  await writeMerchants(merchants);
+  await writeUserCache(userId, merchants);
   return readOnlineMerchants();
 }
 
 async function readMerchantsFromBestSource() {
   if (await isOnlineSignedIn()) {
+    const session = await currentSession();
+    const user = sessionUser(session);
+    const profile = await currentUserProfile(session);
     try {
       const merchants = await readOnlineMerchants();
       if (merchants.length) {
-        await writeMerchants(merchants);
+        await writeUserCache(user.id, merchants);
         return merchants;
       }
-      const localMerchants = await readMerchants();
-      if (localMerchants.length) {
+      const localMerchants = profile.isAdmin ? await readMerchants() : [];
+      if (profile.isAdmin && localMerchants.length) {
         return writeOnlineMerchants(localMerchants);
       }
       return [];
     } catch (error) {
       console.error(error);
+      return readUserCache(user.id);
     }
   }
-  return readMerchants();
+  return [];
 }
 
 function createWindow() {
@@ -579,7 +626,10 @@ ipcMain.handle('merchant:upsert', async (_event, merchant) => {
 });
 
 ipcMain.handle('merchant:delete', async (_event, merchantId) => {
-  const merchants = (await readMerchantsFromBestSource()).filter((item) => item.id !== merchantId);
+  const currentMerchants = await readMerchantsFromBestSource();
+  const merchant = currentMerchants.find((item) => item.id === merchantId);
+  if (merchant?.recordSource !== 'manual') throw new Error('Imported accounts can only be removed by undoing their import.');
+  const merchants = currentMerchants.filter((item) => item.id !== merchantId);
   if (await isOnlineSignedIn()) return writeOnlineMerchants(merchants);
   return writeMerchants(merchants);
 });
@@ -587,9 +637,12 @@ ipcMain.handle('merchant:delete', async (_event, merchantId) => {
 ipcMain.handle('auth:status', async () => {
   const session = await currentSession();
   const user = sessionUser(session);
+  const profile = await currentUserProfile(session);
   return {
     signedIn: Boolean(sessionAccessToken(session) && user),
     email: user?.email || '',
+    approved: profile.approved,
+    isAdmin: profile.isAdmin,
     source: sessionAccessToken(session) && user ? 'Supabase' : 'Local'
   };
 });
@@ -606,7 +659,8 @@ ipcMain.handle('auth:signIn', async (_event, { email, password }) => {
   const body = await response.json();
   if (!response.ok) throw new Error(body?.msg || body?.message || response.statusText);
   await writeSession(body);
-  return { signedIn: true, email: body.user?.email || email, source: 'Supabase' };
+  const profile = await currentUserProfile(body);
+  return { signedIn: true, email: body.user?.email || email, approved: profile.approved, isAdmin: profile.isAdmin, source: 'Supabase' };
 });
 
 ipcMain.handle('auth:signUp', async (_event, { email, password }) => {
@@ -620,8 +674,16 @@ ipcMain.handle('auth:signUp', async (_event, { email, password }) => {
   });
   const body = await response.json();
   if (!response.ok) throw new Error(body?.msg || body?.message || response.statusText);
-  if (body.session) await writeSession(body);
-  return { signedIn: Boolean(body.session), email: body.user?.email || email, source: body.session ? 'Supabase' : 'Local' };
+  const signedIn = Boolean(sessionAccessToken(body));
+  if (signedIn) await writeSession(body);
+  const profile = signedIn ? await currentUserProfile(body) : { approved: false, isAdmin: false };
+  return {
+    signedIn,
+    email: sessionUser(body)?.email || body.user?.email || email,
+    approved: profile.approved,
+    isAdmin: profile.isAdmin,
+    source: signedIn ? 'Supabase' : 'Local'
+  };
 });
 
 ipcMain.handle('auth:signOut', async () => {
@@ -632,6 +694,23 @@ ipcMain.handle('auth:signOut', async () => {
   }
   await clearSession();
   return { signedIn: false, email: '', source: 'Local' };
+});
+
+ipcMain.handle('auth:listUsers', async () => {
+  const profile = await currentUserProfile();
+  if (!profile.isAdmin) throw new Error('Administrator access is required.');
+  return supabaseFetch(`/rest/v1/${SUPABASE_PROFILE_TABLE}?select=user_id,email,approved,is_admin,created_at&order=created_at.asc`, { method: 'GET' });
+});
+
+ipcMain.handle('auth:setApproval', async (_event, { userId, approved }) => {
+  const profile = await currentUserProfile();
+  if (!profile.isAdmin) throw new Error('Administrator access is required.');
+  await supabaseFetch(`/rest/v1/${SUPABASE_PROFILE_TABLE}?user_id=eq.${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ approved: Boolean(approved), updated_at: new Date().toISOString() })
+  });
+  return true;
 });
 
 ipcMain.handle('excel:import', async () => {
