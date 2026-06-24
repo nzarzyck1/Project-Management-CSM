@@ -28,6 +28,9 @@ const SUPABASE_TABLE = 'launchpad_merchants';
 
 let mainWindow;
 let updateCheckInProgress = false;
+let updateCheckWasManual = false;
+let updateDownloadInProgress = false;
+let lastUpdateCheckAt = 0;
 
 function sharedDataPath() {
   const configuredDir = process.env.LAUNCHPAD_DATA_DIR;
@@ -436,6 +439,9 @@ function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
+  mainWindow.on('focus', () => {
+    if (app.isPackaged && Date.now() - lastUpdateCheckAt > 5 * 60 * 1000) checkForUpdates(false);
+  });
 }
 
 function sendUpdateStatus(status, message = '') {
@@ -447,14 +453,15 @@ async function checkForUpdates(manual = false) {
     if (manual) sendUpdateStatus('development', 'Updates are checked in installed builds.');
     return;
   }
-  if (updateCheckInProgress) return;
+  if (updateCheckInProgress || updateDownloadInProgress) return;
   updateCheckInProgress = true;
+  updateCheckWasManual = manual;
+  lastUpdateCheckAt = Date.now();
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
   try {
-    sendUpdateStatus('checking', 'Checking for updates...');
-    const result = await autoUpdater.checkForUpdates();
-    if (manual && !result?.updateInfo) sendUpdateStatus('current', 'LaunchPad is up to date.');
+    if (manual) sendUpdateStatus('checking', 'Checking for updates...');
+    await autoUpdater.checkForUpdates();
   } catch (error) {
     console.error(error);
     if (manual) sendUpdateStatus('error', error.message || 'Could not check for updates.');
@@ -465,6 +472,7 @@ async function checkForUpdates(manual = false) {
 function setupAutoUpdater() {
   autoUpdater.on('update-available', async (info) => {
     updateCheckInProgress = false;
+    updateCheckWasManual = false;
     const response = await dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'LaunchPad Update Available',
@@ -475,6 +483,7 @@ function setupAutoUpdater() {
       cancelId: 1
     });
     if (response.response === 0) {
+      updateDownloadInProgress = true;
       sendUpdateStatus('downloading', `Downloading LaunchPad ${info.version}...`);
       autoUpdater.downloadUpdate();
     }
@@ -482,7 +491,8 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-not-available', () => {
     updateCheckInProgress = false;
-    sendUpdateStatus('current', 'LaunchPad is up to date.');
+    if (updateCheckWasManual) sendUpdateStatus('current', 'LaunchPad is up to date.');
+    updateCheckWasManual = false;
   });
 
   autoUpdater.on('download-progress', (progress) => {
@@ -490,6 +500,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', async (info) => {
+    updateDownloadInProgress = false;
     const response = await dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'LaunchPad Update Ready',
@@ -505,14 +516,19 @@ function setupAutoUpdater() {
   autoUpdater.on('error', (error) => {
     console.error(error);
     updateCheckInProgress = false;
-    sendUpdateStatus('error', error.message || 'Update failed.');
+    updateDownloadInProgress = false;
+    if (updateCheckWasManual) sendUpdateStatus('error', error.message || 'Update failed.');
+    updateCheckWasManual = false;
   });
 }
 
 app.whenReady().then(() => {
   createWindow();
   setupAutoUpdater();
-  if (app.isPackaged) setTimeout(() => checkForUpdates(false), 5000);
+  if (app.isPackaged) {
+    setTimeout(() => checkForUpdates(false), 5000);
+    setInterval(() => checkForUpdates(false), 15 * 60 * 1000);
+  }
 });
 
 app.on('window-all-closed', () => {
