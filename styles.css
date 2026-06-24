@@ -1096,6 +1096,15 @@ tr:hover {
   background: transparent;
 }
 
+.account-status-badge.card-account-status {
+  top: auto;
+  right: 5px;
+  bottom: 5px;
+  min-width: 0;
+  padding: 0;
+  font-size: 8px;
+}
+
 .merchant-snapshot legend {
   padding: 0 5px;
   color: var(--ink);
