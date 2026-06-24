@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LaunchPad</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="app-brand">
+        <img class="app-logo app-logo-light" src="assets/launchpad-logo-light.png" alt="LaunchPad Project Management" />
+        <img class="app-logo app-logo-dark" src="assets/launchpad-logo-dark.png" alt="LaunchPad Project Management" />
+      </div>
+      <div class="header-center">
+        <div id="summaryBar" class="summary-bar"></div>
+        <div class="header-search">
+          <input id="searchInput" type="search" placeholder="Search DBA, MID, task, rep, email..." />
+          <button id="newMerchantBtn" type="button">New Merchant</button>
+        </div>
+      </div>
+      <div class="header-actions">
+        <section class="sync-bar" id="syncBar">
+          <button id="calendarViewBtn" class="secondary" type="button">Calendar</button>
+          <button id="menuBuilderBtn" class="secondary" type="button">Menu Builder</button>
+          <strong id="syncStatus">Local Mode</strong>
+          <input id="authEmail" type="email" placeholder="Supabase email" autocomplete="username" />
+          <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
+          <button id="signInBtn" type="button">Sign In</button>
+          <button id="signUpBtn" class="secondary" type="button">Sign Up</button>
+          <button id="signOutBtn" class="secondary hidden" type="button">Sign Out</button>
+          <button id="syncNowBtn" class="secondary" type="button">Sync Now</button>
+        </section>
+        <button id="darkModeToggle" class="secondary" type="button" aria-pressed="false">Dark Mode</button>
+        <div class="menu-wrap">
+          <button id="appMenuBtn" class="secondary menu-button" type="button" aria-label="Open app menu" aria-expanded="false">...</button>
+          <div id="appMenu" class="app-menu hidden">
+            <div class="app-menu-section">
+              <strong>View</strong>
+              <div id="viewTabs" class="segmented" role="tablist" aria-label="Views"></div>
+              <button id="favoriteViewBtn" class="secondary favorite-view" type="button" title="Make current view open by default">Set Default</button>
+              <label>Card View
+                <select id="cardDensity">
+                  <option value="standard">Standard</option>
+                  <option value="compact">Compact</option>
+                </select>
+              </label>
+              <label>Sort
+                <select id="cardSort">
+                  <option value="none">Default</option>
+                  <option value="alpha-asc">A-Z</option>
+                  <option value="alpha-desc">Z-A</option>
+                  <option value="install-asc">Install Oldest</option>
+                  <option value="install-desc">Install Newest</option>
+                </select>
+              </label>
+              <details id="cardFieldPicker" class="field-picker">
+                <summary>Card Fields</summary>
+                <div id="cardFieldOptions" class="field-options"></div>
+              </details>
+              <button id="archiveToggleBtn" class="secondary" type="button">Show Completed</button>
+            </div>
+            <button id="importBtn" type="button">Import Excel</button>
+            <button id="undoImportBtn" class="secondary" type="button">Undo Last Import</button>
+            <button id="editModeBtn" class="secondary" type="button">Edit</button>
+            <button id="hiddenTasksBtn" class="secondary" type="button">Show Hidden Tasks</button>
+            <button id="dataFolderBtn" class="secondary" type="button">Data folder</button>
+            <button id="checkUpdatesBtn" class="secondary" type="button">Check for Updates</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="workspace">
+        <div id="bulkBar" class="bulk-bar hidden">
+          <strong id="bulkCount">0 selected</strong>
+          <select id="bulkStageSelect" aria-label="Bulk stage"></select>
+          <button id="bulkStageBtn" type="button">Move Stage</button>
+          <select id="bulkTaskSelect" aria-label="Bulk task"></select>
+          <button id="bulkTaskBtn" type="button">Move Task</button>
+          <select id="bulkTypeSelect" aria-label="Bulk programming type"></select>
+          <button id="bulkTypeBtn" type="button">Move Type</button>
+          <button id="bulkDeleteBtn" class="danger secondary" type="button">Delete Selected</button>
+          <button id="bulkClearBtn" class="secondary" type="button">Clear</button>
+        </div>
+        <section id="calendarPanel" class="calendar-panel hidden" aria-label="Calendar view">
+          <div class="section-title">
+            <h3 id="calendarTitle">Calendar</h3>
+            <div class="calendar-actions">
+              <button id="calendarPrevBtn" class="secondary" type="button">Prev</button>
+              <button id="calendarTodayBtn" class="secondary" type="button">Today</button>
+              <button id="calendarNextBtn" class="secondary" type="button">Next</button>
+              <select id="calendarMode">
+                <option value="month">Month</option>
+                <option value="week">Week</option>
+                <option value="day">Day</option>
+                <option value="list">List</option>
+              </select>
+              <button id="closeCalendarBtn" class="secondary" type="button">Close</button>
+            </div>
+          </div>
+          <div id="calendarList" class="calendar-list"></div>
+        </section>
+        <div id="stageKanbanView" class="kanban"></div>
+        <div id="taskKanbanView" class="kanban hidden"></div>
+        <div id="programmingKanbanView" class="kanban hidden"></div>
+        <div id="listView" class="list-view hidden"></div>
+      </section>
+
+      <div id="workspaceResizer" class="workspace-resizer hidden" role="separator" aria-orientation="horizontal" title="Drag to resize board and details"></div>
+
+      <aside class="details-panel collapsed" id="detailsPanel" aria-hidden="true">
+        <div class="panel-title">
+          <h2 id="formTitle">New Merchant</h2>
+          <div class="panel-actions">
+            <button id="savePanelTopBtn" type="button">💾 Save</button>
+            <button id="importContactsBtn" class="secondary" type="button">Import</button>
+            <button id="closePanelBtn" class="secondary" type="button">Close</button>
+          </div>
+        </div>
+
+        <section id="merchantSnapshot" class="merchant-snapshot">
+          <fieldset>
+            <legend>Control Info</legend>
+            <span id="accountStatusBadge" class="account-status-badge hidden"></span>
+            <dl id="controlInfoSummary"></dl>
+          </fieldset>
+          <fieldset>
+            <legend>Merchant Information</legend>
+            <dl id="merchantInfoSummary"></dl>
+          </fieldset>
+          <fieldset>
+            <legend>Sales / Hierarchy Info</legend>
+            <dl id="salesInfoSummary"></dl>
+          </fieldset>
+        </section>
+
+        <div class="panel-tabs">
+          <button id="clientInfoTabBtn" class="active" type="button" data-panel-tab="clientInfo">General</button>
+          <button id="orderInfoTabBtn" type="button" data-panel-tab="orderInfo">Order Info</button>
+          <button id="contactsTabBtn" type="button" data-panel-tab="contacts">Contacts</button>
+          <button id="emailTemplatesTabBtn" type="button" data-panel-tab="emailTemplates">Email Templates</button>
+          <button id="accountNotesTabBtn" type="button" data-panel-tab="accountNotes">Account Notes</button>
+          <button id="equipmentTabBtn" type="button" data-panel-tab="equipment">Equipment</button>
+        </div>
+
+        <div id="clientInfoTab" class="panel-tab-content">
+          <form id="merchantForm">
+            <input type="hidden" id="merchantId" />
+            <label>Task Name<select id="taskName"></select></label>
+            <label>DBA Name<input id="dbaName" required /></label>
+            <label>MID<input id="mid" /></label>
+            <label>Account Status<input id="accountStatus" inputmode="numeric" maxlength="3" placeholder="425 or 600" /></label>
+            <input type="hidden" id="merchantName" />
+            <input type="hidden" id="merchantEmail" />
+            <input type="hidden" id="salesRepName" />
+            <input type="hidden" id="salesRepEmail" />
+            <label>Stage<select id="stage"></select></label>
+            <label>Order Start Date<input id="orderStartDate" type="date" /></label>
+            <div class="field-row">
+              <label>Menu Presentation Date<input id="menuPresentationDate" type="date" /></label>
+              <label>Menu Presentation Time<input id="menuPresentationTime" type="time" /></label>
+            </div>
+            <div class="field-row">
+              <label>Installation Date<input id="installationDate" type="date" /></label>
+              <label>Installation Time<input id="installationTime" type="time" /></label>
+            </div>
+            <label>Go Live Date<input id="goLiveDate" type="date" /></label>
+            <label>Order Life Cycle<input id="orderLifeCycle" readonly /></label>
+            <label>Programming Type<select id="programmingType">
+              <option value=""></option>
+              <option value="S4 Programming">S4 Programming</option>
+            </select></label>
+            <label>Last CSM Touch Point Note<textarea id="lastNote" rows="4"></textarea></label>
+            <div class="form-actions">
+              <button id="saveMerchantBtn" type="submit">💾 Save Merchant</button>
+              <button type="button" id="deleteBtn" class="danger secondary">Delete</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="orderInfoTab" class="panel-tab-content hidden">
+          <form id="orderInfoForm">
+            <section class="order-section">
+              <h3>Gift Cards</h3>
+              <label>Gift Card Conversion Needed?
+                <select id="giftCardConversion">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+            </section>
+
+            <section class="order-section">
+              <h3>Financial Configuration</h3>
+              <div id="taxList" class="repeat-list"></div>
+              <div id="surchargesList" class="repeat-list"></div>
+              <button id="addSurchargeBtn" class="secondary" type="button">+ Add Surcharge</button>
+              <div id="discountsList" class="repeat-list"></div>
+              <button id="addDiscountBtn" class="secondary" type="button">+ Add Discount</button>
+              <label class="inline-check"><input id="happyHourEnabled" type="checkbox" />Happy Hour</label>
+              <div id="happyHourList" class="repeat-list hidden"></div>
+              <button id="addHappyHourBtn" class="secondary hidden" type="button">+ Add Happy Hour</button>
+              <div id="gratuitiesList" class="repeat-list"></div>
+              <button id="addGratuityBtn" class="secondary" type="button">+ Add Gratuity</button>
+              <label>Tip Out Method
+                <select id="tipOutMethod">
+                  <option value="End of Day">End of Day</option>
+                  <option value="Paycheck">Paycheck</option>
+                </select>
+              </label>
+            </section>
+
+            <section class="order-section">
+              <h3>Shipping and Equipment</h3>
+              <label>Business / Installation Address<textarea id="businessAddress" rows="3"></textarea></label>
+              <label class="inline-check"><input id="shippingDifferent" type="checkbox" />Shipping Address is Different</label>
+              <label id="shippingAddressWrap" class="hidden">Shipping Address<textarea id="shippingAddress" rows="3"></textarea></label>
+              <div id="equipmentList" class="equipment-list"></div>
+            </section>
+
+            <section class="order-section">
+              <h3>Contacts</h3>
+              <label>Main Contact<input id="mainContact" /></label>
+              <label>Menu Questions Contact<input id="menuQuestionsContact" /></label>
+            </section>
+
+            <section class="order-section">
+              <h3>Hardware and Layout</h3>
+              <label>Printer/KDS Names<textarea id="printerKdsNames" rows="3"></textarea></label>
+              <label>Floor Plan
+                <select id="floorPlan">
+                  <option value="None">None</option>
+                  <option value="Merchant will supply">Merchant will supply</option>
+                </select>
+              </label>
+            </section>
+
+            <section class="order-section">
+              <h3>Menu</h3>
+              <label class="inline-check"><input id="additionalMenus" type="checkbox" />Additional Menus to be Provided</label>
+              <label>Menu Notes<textarea id="menuNotes" rows="4"></textarea></label>
+            </section>
+
+            <section class="order-section">
+              <h3>Employees</h3>
+              <label>Employee Details
+                <select id="employeeStatus">
+                  <option value="None">None</option>
+                  <option value="Will supply">Will supply</option>
+                  <option value="Provided">Provided</option>
+                </select>
+              </label>
+              <div id="employeesList" class="repeat-list hidden"></div>
+              <button id="addEmployeeBtn" class="secondary hidden" type="button">+ Add Employee</button>
+            </section>
+
+            <section class="order-section">
+              <h3>Additional Integrations</h3>
+              <label>OLO
+                <select id="oloEnabled">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+              <div id="oloScheduleList" class="repeat-list hidden"></div>
+              <label>Customer Database
+                <select id="customerDatabase">
+                  <option value="No">No</option>
+                  <option value="Customer will Provide">Customer will Provide</option>
+                </select>
+              </label>
+              <div id="thirdPartyList" class="repeat-list"></div>
+            </section>
+
+            <div class="form-actions">
+              <button id="saveOrderInfoBtn" type="button">💾 Save Order Info</button>
+            </div>
+          </form>
+
+          <section class="email-panel">
+            <h2>Order Recap Email</h2>
+            <label>Subject Line<input id="orderSubjectOutput" readonly /></label>
+            <div id="orderEmailOutput" class="email-output" role="textbox" aria-label="Generated order recap email"></div>
+            <div class="form-actions">
+              <button id="copyOrderSubjectBtn" class="secondary" type="button">Copy Subject</button>
+              <button id="copyOrderEmailBtn" type="button">Copy Order Email</button>
+              <button id="decisionsOrderBtn" class="secondary" type="button">Decisions</button>
+            </div>
+            <label>Programming Notes<textarea id="orderProgrammingNotesOutput" rows="5" readonly></textarea></label>
+            <div class="form-actions">
+              <button id="copyOrderProgrammingNotesBtn" class="secondary" type="button">Copy Programming Notes</button>
+            </div>
+          </section>
+        </div>
+        <div id="accountNotesTab" class="panel-tab-content hidden">
+          <section class="notes-entry">
+            <label>New Account Note<textarea id="accountNoteInput" rows="4" placeholder="Type account note..."></textarea></label>
+            <div class="form-actions">
+              <button id="addAccountNoteBtn" type="button">Add Note</button>
+            </div>
+          </section>
+          <section class="notes-table-wrap">
+            <table class="notes-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>User</th>
+                  <th>Comments</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="accountNotesList"></tbody>
+            </table>
+          </section>
+        </div>
+        <div id="emailTemplatesTab" class="panel-tab-content hidden">
+          <section class="email-panel">
+            <h2>Email Template</h2>
+            <select id="templateSelect"></select>
+            <label>Subject Line<input id="subjectOutput" readonly /></label>
+            <label id="customNoteWrap" class="hidden">Custom note<textarea id="customNote" rows="3" placeholder="Optional underwriting note..."></textarea></label>
+            <div id="emailOutput" class="email-output" role="textbox" aria-label="Generated email"></div>
+            <div class="form-actions">
+              <button id="copySubjectBtn" class="secondary" type="button">Copy Subject</button>
+              <button id="copyEmailBtn" type="button">Copy Email Text</button>
+              <button id="decisionsClientBtn" class="secondary" type="button">Decisions</button>
+            </div>
+          </section>
+        </div>
+        <div id="contactsTab" class="panel-tab-content hidden">
+          <section class="contacts-section">
+            <div class="section-title">
+              <h3>Contacts</h3>
+              <button id="addContactBtn" class="secondary" type="button">Add Contact</button>
+            </div>
+            <div id="contactsList" class="contacts-list"></div>
+          </section>
+        </div>
+        <div id="equipmentTab" class="panel-tab-content hidden">
+          <section class="order-section equipment-summary-section">
+            <h3>Equipment Summary</h3>
+            <div id="equipmentSummaryList" class="equipment-summary-list"></div>
+          </section>
+        </div>
+      </aside>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="renderer.js"></script>
+  </body>
+</html>

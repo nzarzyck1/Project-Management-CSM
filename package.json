@@ -1,0 +1,61 @@
+{
+  "name": "launchpad",
+  "version": "1.1.0",
+  "description": "Local project CRM for CSM merchant onboarding.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win nsis",
+    "build:portable": "electron-builder --win portable",
+    "release:win": "powershell -ExecutionPolicy Bypass -File tools/build-release.ps1",
+    "release:publish": "electron-builder --win nsis --publish always --config.directories.output=dist"
+  },
+  "build": {
+    "appId": "com.local.csmcrm",
+    "productName": "LaunchPad",
+    "icon": "build/icon.ico",
+    "directories": {
+      "output": "G:/My Drive/Visual Code Studio/LaunchPad/dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "styles.css",
+      "renderer.js",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "artifactName": "LaunchPad-Setup-${version}.${ext}",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "nzarzyck1",
+        "repo": "Project-Management-CSM",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2",
+    "tesseract.js": "^7.0.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^31.7.0",
+    "electron-builder": "^24.13.3"
+  }
+}
