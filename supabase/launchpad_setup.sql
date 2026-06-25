@@ -36,6 +36,21 @@ create table if not exists public.launchpad_account_access (
 );
 
 alter table public.launchpad_account_access
+add column if not exists owner_email text;
+
+alter table public.launchpad_account_access
+add column if not exists viewer_user_id uuid references auth.users(id) on delete cascade;
+
+alter table public.launchpad_account_access
+add column if not exists viewer_email text;
+
+alter table public.launchpad_account_access
+add column if not exists access_level text not null default 'read';
+
+alter table public.launchpad_account_access
+add column if not exists updated_at timestamptz not null default now();
+
+alter table public.launchpad_account_access
 alter column viewer_user_id drop not null;
 
 alter table public.launchpad_account_access
@@ -214,3 +229,5 @@ drop policy if exists "launchpad_delete_own_merchants" on public.launchpad_merch
 create policy "launchpad_delete_own_merchants"
 on public.launchpad_merchants for delete to authenticated
 using (auth.uid() = user_id and public.launchpad_can_write());
+
+notify pgrst, 'reload schema';
