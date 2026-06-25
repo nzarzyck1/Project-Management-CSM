@@ -2736,9 +2736,17 @@ async function renderUsers() {
   el.usersList.innerHTML = users.map((user) => `
     <div class="user-approval-row">
       <span><strong>${escapeHtml(user.email)}</strong>${user.is_admin ? '<small>Owner</small>' : ''}</span>
-      <label><input type="checkbox" data-user-access="${escapeHtml(user.user_id)}" data-access-field="approved" ${user.approved ? 'checked' : ''} ${user.is_admin ? 'disabled' : ''} />Approved</label>
+      <button class="${user.approved ? 'success-state' : 'secondary'} approval-toggle" type="button" data-user-access="${escapeHtml(user.user_id)}" data-approved="${user.approved ? 'true' : 'false'}" ${user.is_admin ? 'disabled' : ''}>
+        ${user.approved ? 'Approved' : 'Approve'}
+      </button>
     </div>
   `).join('') || '<div class="empty">No users found.</div>';
+}
+
+function shareStatusLabel(share) {
+  if (!share.viewer_signed_up) return 'Pending sign-up';
+  if (!share.viewer_approved) return 'Pending Approval';
+  return 'Sharing';
 }
 
 async function renderShares() {
@@ -2746,7 +2754,7 @@ async function renderShares() {
   el.sharesList.innerHTML = shares.length
     ? shares.map((share) => `
       <div class="user-approval-row">
-        <span><strong>${escapeHtml(share.viewer_email)}</strong><small>${share.viewer_user_id ? 'Read-only' : 'Pending sign-up'}</small></span>
+        <span><strong>${escapeHtml(share.viewer_email)}</strong><small>${escapeHtml(shareStatusLabel(share))}</small></span>
         <button class="secondary danger" type="button" data-remove-share="${escapeHtml(share.id)}">Remove</button>
       </div>
     `).join('')
@@ -2763,20 +2771,19 @@ el.manageUsersBtn.addEventListener('click', async () => {
   }
 });
 
-el.usersList.addEventListener('change', async (event) => {
-  const input = event.target.closest('[data-user-access]');
-  if (!input) return;
-  const row = input.closest('.user-approval-row');
-  const userId = input.dataset.userAccess;
+el.usersList.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-user-access]');
+  if (!button || button.disabled) return;
+  const approved = button.dataset.approved !== 'true';
   const access = {
-    userId,
-    approved: row.querySelector('[data-access-field="approved"]')?.checked
+    userId: button.dataset.userAccess,
+    approved
   };
   try {
     await window.crm.setUserAccess(access);
-    showToast('User access saved.');
+    await renderUsers();
+    showToast(approved ? 'User approved.' : 'User approval removed.');
   } catch (error) {
-    input.checked = !input.checked;
     showToast(error.message || 'Could not update approval.');
   }
 });

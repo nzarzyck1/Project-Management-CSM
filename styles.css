@@ -351,6 +351,10 @@ body.dark-mode .app-logo-dark {
   color: var(--primary);
 }
 
+.approval-toggle {
+  min-width: 72px;
+}
+
 .app-menu-section {
   display: grid;
   gap: 6px;

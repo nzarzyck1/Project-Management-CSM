@@ -841,10 +841,40 @@ ipcMain.handle('auth:setAccess', async (_event, { userId, approved }) => {
 ipcMain.handle('share:list', async () => {
   const context = await currentAccountContext();
   if (!context.user?.id || !context.profile.approved) throw new Error('Your account must be approved before sharing.');
-  return supabaseFetch(
+  const shares = await supabaseFetch(
     `/rest/v1/${SUPABASE_ACCESS_TABLE}?owner_user_id=eq.${encodeURIComponent(context.user.id)}&select=id,viewer_user_id,viewer_email,access_level,created_at&order=viewer_email.asc`,
     { method: 'GET' }
   );
+  const enrichedShares = [];
+  for (const share of shares) {
+    const profileQuery = share.viewer_user_id
+      ? `user_id=eq.${encodeURIComponent(share.viewer_user_id)}`
+      : `email=ilike.${encodeURIComponent(String(share.viewer_email || '').trim())}`;
+    const profiles = await supabaseFetch(
+      `/rest/v1/${SUPABASE_PROFILE_TABLE}?${profileQuery}&select=user_id,email,approved`,
+      { method: 'GET' }
+    );
+    const viewerProfile = profiles?.[0];
+    if (viewerProfile?.user_id && !share.viewer_user_id) {
+      await supabaseFetch(`/rest/v1/${SUPABASE_ACCESS_TABLE}?id=eq.${encodeURIComponent(share.id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({
+          viewer_user_id: viewerProfile.user_id,
+          viewer_email: viewerProfile.email || share.viewer_email,
+          updated_at: new Date().toISOString()
+        })
+      });
+    }
+    enrichedShares.push({
+      ...share,
+      viewer_user_id: viewerProfile?.user_id || share.viewer_user_id || null,
+      viewer_email: viewerProfile?.email || share.viewer_email,
+      viewer_approved: Boolean(viewerProfile?.approved),
+      viewer_signed_up: Boolean(viewerProfile?.user_id)
+    });
+  }
+  return enrichedShares;
 });
 
 ipcMain.handle('share:add', async (_event, email) => {
