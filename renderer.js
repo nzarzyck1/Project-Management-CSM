@@ -10,7 +10,7 @@ const VIEWS = [
   { id: 'programming-kanban', label: 'Type' },
   { id: 'list', label: 'List' }
 ];
-const EQUIPMENT_TYPES = ['Shift4 Dine Workstations', 'Customer Facing Displays', 'Kitchen Display Screens', 'Remote Impact Printers', 'Remote Thermal Printers', 'Kiosk', 'Shift4 Duo', 'Tablet', 'Handheld', 'Caller ID Analog'];
+const EQUIPMENT_TYPES = ['Shift4 Dine Workstations', 'Customer Facing Displays', 'Kitchen Display Screens', 'Remote Impact Printers', 'Remote Thermal Printers', 'Kiosk', 'Shift4 Duo', 'Tablet', 'Handheld', 'Caller ID Analog', 'Q25', 'Scanners'];
 const TAX_CLASSES = ['Food', 'Beverage', 'Retail', 'Beer', 'Liquor', 'Wine'];
 const ADVANTAGE_SURCHARGES = ['Dual Pricing', 'Supplemental Fee', 'Cash Discount', 'None'];
 const ADVANTAGE_RATES = ['', '3.0', '3.25', '3.5', '3.75', '4'];
@@ -1133,7 +1133,7 @@ function renderOrderInfo(orderInfo = {}) {
   orderEl.equipmentList.innerHTML = info.equipment.map((item) => `
     <div class="equipment-row">
       <span>${escapeHtml(item.name)}</span>
-      <label>Qty<input data-equipment="${escapeHtml(item.name)}" type="number" min="0" value="${escapeHtml(item.qty)}" /></label>
+      <label class="equipment-qty-label">Qty<input data-equipment="${escapeHtml(item.name)}" type="number" min="0" value="${escapeHtml(item.qty)}" /></label>
     </div>
   `).join('');
 

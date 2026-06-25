@@ -1485,10 +1485,24 @@ form,
 }
 
 .compact-row,
-.equipment-row,
 .day-row {
   grid-template-columns: minmax(0, 1fr) minmax(90px, 0.45fr);
   align-items: end;
+}
+
+.equipment-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.equipment-qty-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.equipment-qty-label input {
+  width: 58px;
 }
 
 .day-row {
