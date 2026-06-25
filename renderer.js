@@ -2379,7 +2379,7 @@ async function refreshAuthStatus() {
     el.authGate.classList.toggle('hidden', status.signedIn && status.approved);
     el.authMessage.textContent = status.signedIn && !status.approved
       ? 'Your email is verified. This account is waiting for owner approval.'
-      : 'New accounts require email verification and owner approval.';
+      : 'New accounts require email verification and owner approval. After verifying, return here to sign in.';
     el.authEmail.classList.toggle('hidden', status.signedIn);
     el.authPassword.classList.toggle('hidden', status.signedIn);
     el.signInBtn.classList.toggle('hidden', status.signedIn);

@@ -27,6 +27,7 @@ const SUPABASE_KEY = 'sb_publishable__OJywYO4yvTZFzxYeD9GHA_r9OgwXdq';
 const SUPABASE_TABLE = 'launchpad_merchants';
 const SUPABASE_PROFILE_TABLE = 'launchpad_profiles';
 const SUPABASE_ACCESS_TABLE = 'launchpad_account_access';
+const EMAIL_CONFIRM_REDIRECT_URL = 'https://github.com/nzarzyck1/Project-Management-CSM/releases/latest';
 const OWNER_EMAIL = 'ngzarzycki@gmail.com';
 
 let mainWindow;
@@ -770,7 +771,7 @@ ipcMain.handle('auth:signIn', async (_event, { email, password }) => {
 });
 
 ipcMain.handle('auth:signUp', async (_event, { email, password }) => {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(EMAIL_CONFIRM_REDIRECT_URL)}`, {
     method: 'POST',
     headers: {
       apikey: SUPABASE_KEY,
