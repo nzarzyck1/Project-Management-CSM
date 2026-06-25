@@ -12,6 +12,7 @@
         <img class="app-logo app-logo-light" src="assets/launchpad-logo-light.png" alt="LaunchPad Project Management" />
         <img class="app-logo app-logo-dark" src="assets/launchpad-logo-dark.png" alt="LaunchPad Project Management" />
         <span id="brandUser" class="brand-user"></span>
+        <select id="accountScopeSelect" class="account-scope hidden" aria-label="LaunchPad account"></select>
       </div>
       <div class="header-center">
         <div id="summaryBar" class="summary-bar"></div>
@@ -62,6 +63,7 @@
             <button id="editModeBtn" class="secondary" type="button">Edit</button>
             <button id="hiddenTasksBtn" class="secondary" type="button">Show Hidden Tasks</button>
             <button id="dataFolderBtn" class="secondary" type="button">Data folder</button>
+            <button id="shareAccessBtn" class="secondary" type="button">Share Read-only Access</button>
             <button id="checkUpdatesBtn" class="secondary" type="button">Check for Updates</button>
             <button id="manageUsersBtn" class="secondary hidden" type="button">Manage Users</button>
           </div>
@@ -387,7 +389,22 @@
       <form method="dialog">
         <h2>User Approvals</h2>
         <div id="usersList" class="users-list"></div>
-        <div class="form-actions"><button class="secondary" value="cancel">Close</button></div>
+        <div class="form-actions">
+          <button id="openShareAccessBtn" type="button">Share Read-only Access</button>
+          <button class="secondary" value="cancel">Close</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="shareDialog" class="merge-dialog">
+      <form method="dialog">
+        <h2>Read-only Access</h2>
+        <label>Supervisor Email<input id="shareEmailInput" type="email" placeholder="supervisor@example.com" /></label>
+        <div class="form-actions">
+          <button id="addShareBtn" type="button">Invite</button>
+          <button class="secondary" value="cancel">Close</button>
+        </div>
+        <div id="sharesList" class="users-list"></div>
       </form>
     </dialog>
 

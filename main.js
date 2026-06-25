@@ -26,9 +26,11 @@ const SUPABASE_URL = 'https://wdsshmqsqknttytfchpz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable__OJywYO4yvTZFzxYeD9GHA_r9OgwXdq';
 const SUPABASE_TABLE = 'launchpad_merchants';
 const SUPABASE_PROFILE_TABLE = 'launchpad_profiles';
+const SUPABASE_ACCESS_TABLE = 'launchpad_account_access';
 const OWNER_EMAIL = 'ngzarzycki@gmail.com';
 
 let mainWindow;
+let activeAccountOwnerId = '';
 let updateCheckInProgress = false;
 let updateCheckWasManual = false;
 let updateDownloadInProgress = false;
@@ -337,7 +339,11 @@ async function supabaseFetch(pathname, options = {}, requireAuth = true) {
   const text = await response.text();
   const body = text ? JSON.parse(text) : null;
   if (!response.ok) {
-    throw new Error(body?.msg || body?.message || response.statusText);
+    const message = body?.msg || body?.message || response.statusText;
+    if (/schema cache|Could not find the table|launchpad_profiles|launchpad_account_access/i.test(message || '')) {
+      throw new Error('LaunchPad needs the latest Supabase setup. Run supabase/launchpad_setup.sql in the Supabase SQL Editor, then reload the app.');
+    }
+    throw new Error(message);
   }
   return body;
 }
@@ -388,6 +394,10 @@ function merchantRow(merchant, userId) {
   };
 }
 
+function userLabel(email, fallback = 'My LaunchPad') {
+  return email ? email : fallback;
+}
+
 function merchantFromRow(row) {
   return {
     ...(row.merchant_data || {}),
@@ -404,31 +414,106 @@ function merchantFromRow(row) {
 async function isOnlineSignedIn() {
   const session = await currentSession();
   if (!sessionAccessToken(session) || !sessionUser(session)?.id) return false;
-  const profile = await currentUserProfile(session);
-  return Boolean(profile.approved);
+  const context = await currentAccountContext(session);
+  return Boolean(context.canUse);
 }
 
 async function currentUserProfile(session = null) {
   const activeSession = session || await currentSession();
   const user = sessionUser(activeSession);
-  if (!user?.id) return { approved: false, isAdmin: false, email: '' };
+  if (!user?.id) return { approved: false, isAdmin: false, readOnly: false, email: '' };
   try {
-    const rows = await supabaseFetch(`/rest/v1/${SUPABASE_PROFILE_TABLE}?user_id=eq.${encodeURIComponent(user.id)}&select=user_id,email,approved,is_admin`, { method: 'GET' });
+    const rows = await supabaseFetch(`/rest/v1/${SUPABASE_PROFILE_TABLE}?user_id=eq.${encodeURIComponent(user.id)}&select=user_id,email,approved,is_admin,read_only`, { method: 'GET' });
     const profile = rows?.[0];
     return {
       approved: Boolean(profile?.approved),
       isAdmin: Boolean(profile?.is_admin),
+      readOnly: Boolean(profile?.read_only),
       email: profile?.email || user.email || ''
     };
   } catch (error) {
     console.error(error);
     const isOwner = String(user.email || '').toLowerCase() === OWNER_EMAIL;
-    return { approved: isOwner, isAdmin: isOwner, email: user.email || '' };
+    return { approved: isOwner, isAdmin: isOwner, readOnly: false, email: user.email || '' };
   }
 }
 
-async function readOnlineMerchants() {
-  const rows = await supabaseFetch(`/rest/v1/${SUPABASE_TABLE}?select=*&order=updated_at.desc`, {
+async function currentUserCanWrite() {
+  const context = await currentAccountContext();
+  return context.canWrite;
+}
+
+async function requireWriteAccess() {
+  if (!(await currentUserCanWrite())) throw new Error('This account has read-only access.');
+}
+
+async function availableAccountScopes(session = null) {
+  const activeSession = session || await currentSession();
+  const user = sessionUser(activeSession);
+  if (!user?.id) return [];
+  const profile = await currentUserProfile(activeSession);
+  const scopes = [];
+  if (profile.approved) {
+    scopes.push({
+      ownerUserId: user.id,
+      ownerEmail: profile.email || user.email || '',
+      label: `${userLabel(profile.email || user.email)} (Mine)`,
+      accessLevel: profile.readOnly ? 'read' : 'write',
+      isOwn: true,
+      canWrite: !profile.readOnly
+    });
+  }
+  try {
+    const rows = await supabaseFetch(
+      `/rest/v1/${SUPABASE_ACCESS_TABLE}?viewer_user_id=eq.${encodeURIComponent(user.id)}&select=owner_user_id,owner_email,access_level&order=owner_email.asc`,
+      { method: 'GET' }
+    );
+    rows.forEach((row) => {
+      if (!row.owner_user_id || row.owner_user_id === user.id) return;
+      scopes.push({
+        ownerUserId: row.owner_user_id,
+        ownerEmail: row.owner_email || '',
+        label: userLabel(row.owner_email, 'Shared LaunchPad'),
+        accessLevel: row.access_level || 'read',
+        isOwn: false,
+        canWrite: false
+      });
+    });
+  } catch (error) {
+    console.error(error);
+  }
+  return scopes;
+}
+
+async function currentAccountContext(session = null) {
+  const activeSession = session || await currentSession();
+  const user = sessionUser(activeSession);
+  const profile = await currentUserProfile(activeSession);
+  const scopes = await availableAccountScopes(activeSession);
+  if (!scopes.length) {
+    activeAccountOwnerId = '';
+    return { user, profile, scopes, ownerUserId: '', ownerEmail: '', readOnly: true, canWrite: false, canUse: false };
+  }
+  if (!activeAccountOwnerId || !scopes.some((scope) => scope.ownerUserId === activeAccountOwnerId)) {
+    activeAccountOwnerId = scopes.find((scope) => scope.isOwn)?.ownerUserId || scopes[0].ownerUserId;
+  }
+  const activeScope = scopes.find((scope) => scope.ownerUserId === activeAccountOwnerId) || scopes[0];
+  return {
+    user,
+    profile,
+    scopes,
+    ownerUserId: activeScope.ownerUserId,
+    ownerEmail: activeScope.ownerEmail,
+    readOnly: !activeScope.canWrite,
+    canWrite: Boolean(activeScope.canWrite),
+    canUse: true
+  };
+}
+
+async function readOnlineMerchants(ownerUserId = '') {
+  const context = ownerUserId ? { ownerUserId } : await currentAccountContext();
+  if (!context.ownerUserId) return [];
+  const rows = await supabaseFetch(`/rest/v1/${SUPABASE_TABLE}?user_id=eq.${encodeURIComponent(context.ownerUserId)}&select=*&order=updated_at.desc`, {
     method: 'GET'
   });
   return rows.map(merchantFromRow);
@@ -436,9 +521,11 @@ async function readOnlineMerchants() {
 
 async function writeOnlineMerchants(merchants) {
   const session = await currentSession();
+  const context = await currentAccountContext(session);
   const userId = sessionUser(session)?.id;
-  if (!userId) throw new Error('Not signed in.');
-  const existingRows = await supabaseFetch(`/rest/v1/${SUPABASE_TABLE}?select=id`, { method: 'GET' });
+  if (!userId || !context.ownerUserId) throw new Error('Not signed in.');
+  if (!context.canWrite || context.ownerUserId !== userId) throw new Error('This account has read-only access.');
+  const existingRows = await supabaseFetch(`/rest/v1/${SUPABASE_TABLE}?user_id=eq.${encodeURIComponent(context.ownerUserId)}&select=id`, { method: 'GET' });
   const nextIds = new Set(merchants.map((merchant) => merchant.id));
   const removeIds = existingRows.map((row) => row.id).filter((id) => !nextIds.has(id));
   if (removeIds.length) {
@@ -450,32 +537,32 @@ async function writeOnlineMerchants(merchants) {
     await supabaseFetch(`/rest/v1/${SUPABASE_TABLE}`, {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-      body: JSON.stringify(merchants.map((merchant) => merchantRow(merchant, userId)))
+      body: JSON.stringify(merchants.map((merchant) => merchantRow(merchant, context.ownerUserId)))
     });
   }
-  await writeUserCache(userId, merchants);
-  return readOnlineMerchants();
+  await writeUserCache(context.ownerUserId, merchants);
+  return readOnlineMerchants(context.ownerUserId);
 }
 
 async function readMerchantsFromBestSource() {
   if (await isOnlineSignedIn()) {
     const session = await currentSession();
-    const user = sessionUser(session);
+    const context = await currentAccountContext(session);
     const profile = await currentUserProfile(session);
     try {
-      const merchants = await readOnlineMerchants();
+      const merchants = await readOnlineMerchants(context.ownerUserId);
       if (merchants.length) {
-        await writeUserCache(user.id, merchants);
+        await writeUserCache(context.ownerUserId, merchants);
         return merchants;
       }
-      const localMerchants = profile.isAdmin ? await readMerchants() : [];
-      if (profile.isAdmin && localMerchants.length) {
+      const localMerchants = context.canWrite ? await readMerchants() : [];
+      if (context.canWrite && localMerchants.length) {
         return writeOnlineMerchants(localMerchants);
       }
       return [];
     } catch (error) {
       console.error(error);
-      return readUserCache(user.id);
+      return readUserCache(context.ownerUserId);
     }
   }
   return [];
@@ -600,6 +687,7 @@ ipcMain.handle('merchants:load', readMerchantsFromBestSource);
 ipcMain.handle('update:check', () => checkForUpdates(true));
 
 ipcMain.handle('merchants:save', async (_event, merchants) => {
+  await requireWriteAccess();
   const nextMerchants = merchants.map((merchant) => ({
     ...merchant,
     updatedAt: new Date().toISOString()
@@ -609,6 +697,7 @@ ipcMain.handle('merchants:save', async (_event, merchants) => {
 });
 
 ipcMain.handle('merchant:upsert', async (_event, merchant) => {
+  await requireWriteAccess();
   const merchants = await readMerchantsFromBestSource();
   const now = new Date().toISOString();
   const nextMerchant = {
@@ -626,6 +715,7 @@ ipcMain.handle('merchant:upsert', async (_event, merchant) => {
 });
 
 ipcMain.handle('merchant:delete', async (_event, merchantId) => {
+  await requireWriteAccess();
   const currentMerchants = await readMerchantsFromBestSource();
   const merchant = currentMerchants.find((item) => item.id === merchantId);
   if (merchant?.recordSource !== 'manual') throw new Error('Imported accounts can only be removed by undoing their import.');
@@ -637,14 +727,28 @@ ipcMain.handle('merchant:delete', async (_event, merchantId) => {
 ipcMain.handle('auth:status', async () => {
   const session = await currentSession();
   const user = sessionUser(session);
+  const context = await currentAccountContext(session);
   const profile = await currentUserProfile(session);
   return {
     signedIn: Boolean(sessionAccessToken(session) && user),
     email: user?.email || '',
-    approved: profile.approved,
+    approved: context.canUse,
     isAdmin: profile.isAdmin,
+    readOnly: context.readOnly,
+    activeAccountOwnerId: context.ownerUserId,
+    activeAccountEmail: context.ownerEmail,
+    accounts: context.scopes,
     source: sessionAccessToken(session) && user ? 'Supabase' : 'Local'
   };
+});
+
+ipcMain.handle('auth:setActiveAccount', async (_event, ownerUserId) => {
+  const context = await currentAccountContext();
+  if (!context.scopes.some((scope) => scope.ownerUserId === ownerUserId)) {
+    throw new Error('You do not have access to that LaunchPad account.');
+  }
+  activeAccountOwnerId = ownerUserId;
+  return true;
 });
 
 ipcMain.handle('auth:signIn', async (_event, { email, password }) => {
@@ -660,7 +764,8 @@ ipcMain.handle('auth:signIn', async (_event, { email, password }) => {
   if (!response.ok) throw new Error(body?.msg || body?.message || response.statusText);
   await writeSession(body);
   const profile = await currentUserProfile(body);
-  return { signedIn: true, email: body.user?.email || email, approved: profile.approved, isAdmin: profile.isAdmin, source: 'Supabase' };
+  const context = await currentAccountContext(body);
+  return { signedIn: true, email: body.user?.email || email, approved: context.canUse, isAdmin: profile.isAdmin, readOnly: context.readOnly, accounts: context.scopes, source: 'Supabase' };
 });
 
 ipcMain.handle('auth:signUp', async (_event, { email, password }) => {
@@ -676,12 +781,15 @@ ipcMain.handle('auth:signUp', async (_event, { email, password }) => {
   if (!response.ok) throw new Error(body?.msg || body?.message || response.statusText);
   const signedIn = Boolean(sessionAccessToken(body));
   if (signedIn) await writeSession(body);
-  const profile = signedIn ? await currentUserProfile(body) : { approved: false, isAdmin: false };
+  const profile = signedIn ? await currentUserProfile(body) : { approved: false, isAdmin: false, readOnly: false };
+  const context = signedIn ? await currentAccountContext(body) : { canUse: false, readOnly: true, scopes: [] };
   return {
     signedIn,
     email: sessionUser(body)?.email || body.user?.email || email,
-    approved: profile.approved,
+    approved: context.canUse,
     isAdmin: profile.isAdmin,
+    readOnly: context.readOnly,
+    accounts: context.scopes,
     source: signedIn ? 'Supabase' : 'Local'
   };
 });
@@ -699,7 +807,7 @@ ipcMain.handle('auth:signOut', async () => {
 ipcMain.handle('auth:listUsers', async () => {
   const profile = await currentUserProfile();
   if (!profile.isAdmin) throw new Error('Administrator access is required.');
-  return supabaseFetch(`/rest/v1/${SUPABASE_PROFILE_TABLE}?select=user_id,email,approved,is_admin,created_at&order=created_at.asc`, { method: 'GET' });
+  return supabaseFetch(`/rest/v1/${SUPABASE_PROFILE_TABLE}?select=user_id,email,approved,is_admin,read_only,created_at&order=created_at.asc`, { method: 'GET' });
 });
 
 ipcMain.handle('auth:setApproval', async (_event, { userId, approved }) => {
@@ -713,7 +821,68 @@ ipcMain.handle('auth:setApproval', async (_event, { userId, approved }) => {
   return true;
 });
 
+ipcMain.handle('auth:setAccess', async (_event, { userId, approved, readOnly }) => {
+  const profile = await currentUserProfile();
+  if (!profile.isAdmin) throw new Error('Administrator access is required.');
+  await supabaseFetch(`/rest/v1/${SUPABASE_PROFILE_TABLE}?user_id=eq.${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      approved: Boolean(approved),
+      read_only: Boolean(readOnly),
+      updated_at: new Date().toISOString()
+    })
+  });
+  return true;
+});
+
+ipcMain.handle('share:list', async () => {
+  const context = await currentAccountContext();
+  if (!context.user?.id || !context.profile.approved) throw new Error('Your account must be approved before sharing.');
+  return supabaseFetch(
+    `/rest/v1/${SUPABASE_ACCESS_TABLE}?owner_user_id=eq.${encodeURIComponent(context.user.id)}&select=id,viewer_email,access_level,created_at&order=viewer_email.asc`,
+    { method: 'GET' }
+  );
+});
+
+ipcMain.handle('share:add', async (_event, email) => {
+  const context = await currentAccountContext();
+  if (!context.user?.id || !context.profile.approved) throw new Error('Your account must be approved before sharing.');
+  const viewerEmail = String(email || '').trim().toLowerCase();
+  if (!viewerEmail) throw new Error('Enter the supervisor email to invite.');
+  if (viewerEmail === String(context.user.email || '').toLowerCase()) throw new Error('You already have access to your own account.');
+  const viewers = await supabaseFetch(
+    `/rest/v1/${SUPABASE_PROFILE_TABLE}?email=eq.${encodeURIComponent(viewerEmail)}&select=user_id,email`,
+    { method: 'GET' }
+  );
+  const viewer = viewers?.[0];
+  if (!viewer?.user_id) throw new Error('That supervisor needs to sign up for LaunchPad first.');
+  await supabaseFetch(`/rest/v1/${SUPABASE_ACCESS_TABLE}?on_conflict=owner_user_id,viewer_user_id`, {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify([{
+      owner_user_id: context.user.id,
+      owner_email: context.user.email || context.profile.email || '',
+      viewer_user_id: viewer.user_id,
+      viewer_email: viewer.email || viewerEmail,
+      access_level: 'read'
+    }])
+  });
+  return true;
+});
+
+ipcMain.handle('share:remove', async (_event, shareId) => {
+  const context = await currentAccountContext();
+  if (!context.user?.id || !context.profile.approved) throw new Error('Your account must be approved before sharing.');
+  await supabaseFetch(
+    `/rest/v1/${SUPABASE_ACCESS_TABLE}?id=eq.${encodeURIComponent(shareId)}&owner_user_id=eq.${encodeURIComponent(context.user.id)}`,
+    { method: 'DELETE' }
+  );
+  return true;
+});
+
 ipcMain.handle('excel:import', async () => {
+  await requireWriteAccess();
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Import merchant queue',
     filters: [{ name: 'Excel Workbooks', extensions: ['xlsx', 'xls'] }],
@@ -737,6 +906,7 @@ ipcMain.handle('excel:import', async () => {
 });
 
 ipcMain.handle('excel:importSample', async () => {
+  await requireWriteAccess();
   const samplePath = path.join(__dirname, 'sample-import.xlsx');
   const workbook = XLSX.readFile(samplePath, { cellDates: true });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -752,6 +922,7 @@ ipcMain.handle('excel:importSample', async () => {
 });
 
 ipcMain.handle('contacts:importImage', async () => {
+  await requireWriteAccess();
   let imageBuffer = null;
   let source = 'clipboard';
   const clipboardImage = clipboard.readImage();

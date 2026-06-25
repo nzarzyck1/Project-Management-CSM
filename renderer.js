@@ -128,7 +128,10 @@ const state = {
   showCompleted: false,
   calendarMode: localStorage.getItem('calendarMode') || 'month',
   calendarDate: new Date(),
-  csmName: localStorage.getItem('csmName') || 'Your CSM'
+  csmName: localStorage.getItem('csmName') || 'Your CSM',
+  readOnly: false,
+  accounts: [],
+  activeAccountOwnerId: ''
 };
 
 const el = {
@@ -139,11 +142,13 @@ const el = {
   editModeBtn: document.querySelector('#editModeBtn'),
   hiddenTasksBtn: document.querySelector('#hiddenTasksBtn'),
   dataFolderBtn: document.querySelector('#dataFolderBtn'),
+  shareAccessBtn: document.querySelector('#shareAccessBtn'),
   checkUpdatesBtn: document.querySelector('#checkUpdatesBtn'),
   calendarViewBtn: document.querySelector('#calendarViewBtn'),
   menuBuilderBtn: document.querySelector('#menuBuilderBtn'),
   syncStatus: document.querySelector('#syncStatus'),
   brandUser: document.querySelector('#brandUser'),
+  accountScopeSelect: document.querySelector('#accountScopeSelect'),
   authGate: document.querySelector('#authGate'),
   authMessage: document.querySelector('#authMessage'),
   authEmail: document.querySelector('#authEmail'),
@@ -155,6 +160,11 @@ const el = {
   manageUsersBtn: document.querySelector('#manageUsersBtn'),
   usersDialog: document.querySelector('#usersDialog'),
   usersList: document.querySelector('#usersList'),
+  openShareAccessBtn: document.querySelector('#openShareAccessBtn'),
+  shareDialog: document.querySelector('#shareDialog'),
+  shareEmailInput: document.querySelector('#shareEmailInput'),
+  addShareBtn: document.querySelector('#addShareBtn'),
+  sharesList: document.querySelector('#sharesList'),
   syncNowBtn: document.querySelector('#syncNowBtn'),
   viewTabs: document.querySelector('#viewTabs'),
   favoriteViewBtn: document.querySelector('#favoriteViewBtn'),
@@ -369,7 +379,7 @@ function saveCardSettings() {
 
 function renderDisplayTools() {
   document.body.classList.toggle('compact-view', state.cardDensity === 'compact');
-  el.undoImportBtn.disabled = !localStorage.getItem('lastImportUndo');
+  el.undoImportBtn.disabled = state.readOnly || !localStorage.getItem('lastImportUndo');
   el.hiddenTasksBtn.disabled = state.view !== 'task-kanban' || !state.hiddenTasks.length;
   el.hiddenTasksBtn.textContent = state.showHiddenTasks ? 'Hide Hidden Tasks' : 'Show Hidden Tasks';
   el.cardDensity.value = state.cardDensity;
@@ -380,6 +390,7 @@ function renderDisplayTools() {
   el.cardFieldOptions.innerHTML = CARD_FIELD_OPTIONS.map((field) => `
     <label><input type="checkbox" value="${escapeHtml(field.id)}" ${state.cardFields.includes(field.id) ? 'checked' : ''} />${escapeHtml(field.label)}</label>
   `).join('');
+  syncReadOnlyControls();
 }
 
 function orderedViews() {
@@ -391,7 +402,7 @@ function renderViewTabs() {
   el.viewTabs.innerHTML = orderedViews().map((view) => `
     <button
       class="${view.id === state.view ? 'active' : ''}"
-      draggable="true"
+      draggable="${canWrite()}"
       data-view-id="${view.id}"
       type="button"
       title="Drag to reorder views"
@@ -416,6 +427,81 @@ function showToast(message) {
   el.toast.classList.remove('hidden');
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => el.toast.classList.add('hidden'), 3200);
+}
+
+function canWrite() {
+  return !state.readOnly;
+}
+
+function blockReadOnly() {
+  if (canWrite()) return false;
+  showToast('Read-only access: edits are disabled for this account.');
+  return true;
+}
+
+function setControlsDisabled(container, selector, disabled) {
+  container?.querySelectorAll(selector).forEach((control) => {
+    control.disabled = disabled;
+  });
+}
+
+function syncReadOnlyControls() {
+  document.body.classList.toggle('read-only-mode', state.readOnly);
+  [
+    el.newMerchantBtn,
+    el.importBtn,
+    el.undoImportBtn,
+    el.editModeBtn,
+    el.shareAccessBtn,
+    el.importContactsBtn,
+    el.addContactBtn,
+    el.savePanelTopBtn,
+    el.saveMerchantBtn,
+    el.mergeMerchantBtn,
+    el.deleteMerchantMenuBtn,
+    el.bulkStageBtn,
+    el.bulkTaskBtn,
+    el.bulkTypeBtn,
+    el.bulkDeleteBtn,
+    orderEl.addSurchargeBtn,
+    orderEl.addDiscountBtn,
+    orderEl.addHappyHourBtn,
+    orderEl.addGratuityBtn,
+    orderEl.addEmployeeBtn,
+    orderEl.saveOrderInfoBtn,
+    orderEl.accountNoteInput,
+    orderEl.addAccountNoteBtn
+  ].forEach((control) => {
+    if (control) control.disabled = state.readOnly;
+  });
+  setControlsDisabled(el.merchantForm, 'input:not([readonly]), textarea:not([readonly]), select', state.readOnly);
+  setControlsDisabled(orderEl.orderInfoForm, 'input:not([readonly]), textarea:not([readonly]), select', state.readOnly);
+  setControlsDisabled(el.contactsList, 'input:not([readonly]), textarea:not([readonly]), select, button:not(.copy-contact-value)', state.readOnly);
+  setControlsDisabled(orderEl.accountNotesList, '[data-delete-note]', state.readOnly);
+  el.importBtn.classList.toggle('hidden', state.readOnly);
+  el.undoImportBtn.classList.toggle('hidden', state.readOnly);
+  el.editModeBtn.classList.toggle('hidden', state.readOnly);
+  el.newMerchantBtn.classList.toggle('hidden', state.readOnly);
+  el.importContactsBtn.classList.toggle('hidden', state.readOnly);
+  el.addContactBtn.classList.toggle('hidden', state.readOnly);
+  el.savePanelTopBtn.classList.toggle('hidden', state.readOnly);
+  el.saveMerchantBtn.classList.toggle('hidden', state.readOnly);
+  el.mergeMerchantBtn.classList.toggle('hidden', state.readOnly);
+  el.deleteMerchantMenuBtn.classList.toggle('hidden', state.readOnly);
+  orderEl.addAccountNoteBtn.classList.toggle('hidden', state.readOnly);
+  orderEl.accountNoteInput.closest('.notes-entry')?.classList.toggle('hidden', state.readOnly);
+  orderEl.saveOrderInfoBtn.classList.toggle('hidden', state.readOnly);
+  el.shareAccessBtn.classList.toggle('hidden', state.readOnly);
+}
+
+function renderAccountSwitcher() {
+  const accounts = state.accounts || [];
+  el.accountScopeSelect.classList.toggle('hidden', accounts.length <= 1);
+  el.accountScopeSelect.innerHTML = accounts.map((account) => `
+    <option value="${escapeHtml(account.ownerUserId)}" ${account.ownerUserId === state.activeAccountOwnerId ? 'selected' : ''}>
+      ${escapeHtml(account.label || account.ownerEmail || 'LaunchPad Account')}${account.canWrite ? '' : ' (read-only)'}
+    </option>
+  `).join('');
 }
 
 function allStages() {
@@ -848,6 +934,7 @@ function renderContacts(contacts = []) {
       `;
     }).join('')
     : '<div class="empty contact-empty">No contacts imported yet.</div>';
+  syncReadOnlyControls();
 }
 
 function renderAccountNotes(notes = []) {
@@ -862,6 +949,7 @@ function renderAccountNotes(notes = []) {
       </tr>
     `).join('')
     : '<tr><td colspan="4" class="empty">No account notes yet.</td></tr>';
+  syncReadOnlyControls();
 }
 
 function readContacts() {
@@ -1060,6 +1148,7 @@ function renderOrderInfo(orderInfo = {}) {
   renderThirdParty(info.thirdParty);
   updateOrderVisibility();
   renderOrderEmail();
+  syncReadOnlyControls();
 }
 
 function renderTaxes(taxes = []) {
@@ -1841,7 +1930,7 @@ function renderCard(merchant) {
   const accountStatus = displayedAccountStatus(merchant.accountStatus, merchant.taskName);
   const statusClass = accountStatusClass(accountStatus);
   return `
-    <article class="card ${state.cardDensity === 'compact' ? 'compact-card' : ''} ${merchant.id === state.selectedId ? 'active' : ''} ${isSelected ? 'selected' : ''}" data-id="${merchant.id}" draggable="true">
+    <article class="card ${state.cardDensity === 'compact' ? 'compact-card' : ''} ${merchant.id === state.selectedId ? 'active' : ''} ${isSelected ? 'selected' : ''}" data-id="${merchant.id}" draggable="${canWrite()}">
       ${state.editMode ? `<label class="card-select"><input type="checkbox" data-select-id="${merchant.id}" ${isSelected ? 'checked' : ''} />Select</label>` : ''}
       <div class="card-meta">
         <span class="card-task">${escapeHtml(merchant.taskName || 'No task name')}</span>
@@ -1854,7 +1943,7 @@ function renderCard(merchant) {
       ${showField('lifeCycle') ? `<p>Life Cycle: ${escapeHtml(lifeCycle || 'Not set')}</p>` : ''}
       ${showField('programmingType') ? `<p>${escapeHtml(programmingTypeLabel(merchant.programmingType))}</p>` : ''}
       ${showField('welcomeEmail') ? `<label class="welcome-email-check">
-        <input type="checkbox" data-welcome-email-id="${merchant.id}" ${merchant.welcomeEmailSent ? 'checked' : ''} title="Welcome Email" aria-label="Welcome Email" />
+        <input type="checkbox" data-welcome-email-id="${merchant.id}" ${merchant.welcomeEmailSent ? 'checked' : ''} ${state.readOnly ? 'disabled' : ''} title="Welcome Email" aria-label="Welcome Email" />
         ${merchant.welcomeEmailSent ? '<strong>Sent</strong>' : ''}
       </label>` : ''}
       ${accountStatus ? `<span class="account-status-badge card-account-status ${statusClass}" title="Account Status">${escapeHtml(accountStatus)}</span>` : ''}
@@ -2280,7 +2369,11 @@ function renderEmail() {
 async function refreshAuthStatus() {
   try {
     const status = await window.crm.authStatus();
-    el.syncStatus.textContent = status.signedIn ? 'Online' : 'Signed Out';
+    state.readOnly = Boolean(status.readOnly);
+    state.accounts = status.accounts || [];
+    state.activeAccountOwnerId = status.activeAccountOwnerId || '';
+    if (state.readOnly) state.editMode = false;
+    el.syncStatus.textContent = status.signedIn ? (status.readOnly ? 'Read-only' : 'Online') : 'Signed Out';
     el.brandUser.textContent = status.signedIn ? status.email : '';
     el.signOutBtn.title = status.signedIn ? `Signed in as ${status.email}` : '';
     el.authGate.classList.toggle('hidden', status.signedIn && status.approved);
@@ -2294,10 +2387,16 @@ async function refreshAuthStatus() {
     el.authSignOutBtn.classList.toggle('hidden', !status.signedIn);
     el.signOutBtn.classList.toggle('hidden', !status.signedIn);
     el.manageUsersBtn.classList.toggle('hidden', !status.isAdmin);
+    renderAccountSwitcher();
+    syncReadOnlyControls();
     return status;
   } catch (error) {
     console.error(error);
+    state.readOnly = false;
+    state.accounts = [];
+    state.activeAccountOwnerId = '';
     el.syncStatus.textContent = 'Local Mode';
+    renderAccountSwitcher();
     return { signedIn: false, source: 'Local' };
   }
 }
@@ -2337,7 +2436,7 @@ async function load() {
     || state.merchants.some((merchant, index) => merchant.merchantName !== compacted[index]?.merchantName)
     || state.merchants.some((merchant, index) => JSON.stringify(merchant.contacts) !== JSON.stringify(contactsForMerchant(compacted[index] || {})))
     || state.merchants.some((merchant, index) => JSON.stringify(merchant.accountNotes) !== JSON.stringify(validAccountNotes(compacted[index]?.accountNotes)));
-  if (needsSave) {
+  if (needsSave && !authStatus.readOnly) {
     state.merchants = await window.crm.saveMerchants(state.merchants);
   }
   renderTemplates();
@@ -2348,6 +2447,7 @@ async function load() {
 }
 
 async function importRows(rows) {
+  if (blockReadOnly()) return;
   const beforeImport = compactMerchants([...state.merchants]);
   const normalizedRows = rows.map((merchant) => ({
     ...merchant,
@@ -2376,6 +2476,7 @@ async function importRows(rows) {
 }
 
 async function undoLastImport() {
+  if (blockReadOnly()) return;
   const raw = localStorage.getItem('lastImportUndo');
   if (!raw) {
     showToast('No import backup is available.');
@@ -2400,6 +2501,7 @@ async function undoLastImport() {
 }
 
 async function deleteMerchant(merchantId) {
+  if (blockReadOnly()) return;
   if (!merchantId) return;
   const merchant = state.merchants.find((item) => item.id === merchantId);
   const label = merchant?.dbaName || merchant?.merchantName || 'this merchant';
@@ -2412,6 +2514,7 @@ async function deleteMerchant(merchantId) {
 }
 
 async function moveMerchantToStage(merchantId, stage) {
+  if (blockReadOnly()) return;
   const nextStage = normalizeStage(stage);
   const merchant = state.merchants.find((item) => item.id === merchantId);
   if (!merchant || normalizeStage(merchant.stage) === nextStage) return;
@@ -2430,6 +2533,7 @@ async function moveMerchantToStage(merchantId, stage) {
 }
 
 async function moveMerchantToTask(merchantId, taskName) {
+  if (blockReadOnly()) return;
   const nextTask = normalizeTask(taskName);
   const merchant = state.merchants.find((item) => item.id === merchantId);
   if (!merchant || normalizeTask(merchant.taskName) === nextTask) return;
@@ -2443,6 +2547,7 @@ async function moveMerchantToTask(merchantId, taskName) {
 }
 
 async function moveMerchantToProgrammingType(merchantId, programmingType) {
+  if (blockReadOnly()) return;
   const nextProgrammingType = normalizeProgrammingType(programmingType);
   const merchant = state.merchants.find((item) => item.id === merchantId);
   if (!merchant || normalizeProgrammingType(merchant.programmingType) === nextProgrammingType) return;
@@ -2468,6 +2573,7 @@ async function moveMerchant(merchantId, field, value) {
 }
 
 async function toggleWelcomeEmailSent(merchantId, isSent) {
+  if (blockReadOnly()) return;
   const merchant = state.merchants.find((item) => item.id === merchantId);
   if (!merchant) return;
   merchant.welcomeEmailSent = isSent;
@@ -2481,6 +2587,7 @@ function selectedIdsArray() {
 }
 
 async function bulkUpdate(field, value) {
+  if (blockReadOnly()) return;
   const merchantIds = selectedIdsArray();
   if (!merchantIds.length) return;
   const now = new Date().toISOString();
@@ -2515,6 +2622,7 @@ async function bulkUpdate(field, value) {
 }
 
 async function bulkDelete() {
+  if (blockReadOnly()) return;
   const selected = selectedIdsArray();
   const merchantIds = selected.filter((merchantId) => state.merchants.find((merchant) => merchant.id === merchantId)?.recordSource === 'manual');
   const protectedCount = selected.length - merchantIds.length;
@@ -2559,6 +2667,7 @@ document.addEventListener('click', (event) => {
 });
 
 el.importBtn.addEventListener('click', async () => {
+  if (blockReadOnly()) return;
   closeAppMenu();
   const result = await window.crm.importExcel();
   if (!result) return;
@@ -2566,6 +2675,7 @@ el.importBtn.addEventListener('click', async () => {
 });
 
 el.undoImportBtn.addEventListener('click', async () => {
+  if (blockReadOnly()) return;
   closeAppMenu();
   await undoLastImport();
 });
@@ -2626,9 +2736,22 @@ async function renderUsers() {
   el.usersList.innerHTML = users.map((user) => `
     <div class="user-approval-row">
       <span><strong>${escapeHtml(user.email)}</strong>${user.is_admin ? '<small>Owner</small>' : ''}</span>
-      <label><input type="checkbox" data-user-approval="${escapeHtml(user.user_id)}" ${user.approved ? 'checked' : ''} ${user.is_admin ? 'disabled' : ''} />Approved</label>
+      <label><input type="checkbox" data-user-access="${escapeHtml(user.user_id)}" data-access-field="approved" ${user.approved ? 'checked' : ''} ${user.is_admin ? 'disabled' : ''} />Approved</label>
+      <label><input type="checkbox" data-user-access="${escapeHtml(user.user_id)}" data-access-field="readOnly" ${user.read_only ? 'checked' : ''} ${user.is_admin ? 'disabled' : ''} />Read-only</label>
     </div>
   `).join('') || '<div class="empty">No users found.</div>';
+}
+
+async function renderShares() {
+  const shares = await window.crm.listShares();
+  el.sharesList.innerHTML = shares.length
+    ? shares.map((share) => `
+      <div class="user-approval-row">
+        <span><strong>${escapeHtml(share.viewer_email)}</strong><small>Read-only</small></span>
+        <button class="secondary danger" type="button" data-remove-share="${escapeHtml(share.id)}">Remove</button>
+      </div>
+    `).join('')
+    : '<div class="empty">No read-only supervisors invited yet.</div>';
 }
 
 el.manageUsersBtn.addEventListener('click', async () => {
@@ -2642,14 +2765,74 @@ el.manageUsersBtn.addEventListener('click', async () => {
 });
 
 el.usersList.addEventListener('change', async (event) => {
-  const input = event.target.closest('[data-user-approval]');
+  const input = event.target.closest('[data-user-access]');
   if (!input) return;
+  const row = input.closest('.user-approval-row');
+  const userId = input.dataset.userAccess;
+  const access = {
+    userId,
+    approved: row.querySelector('[data-access-field="approved"]')?.checked,
+    readOnly: row.querySelector('[data-access-field="readOnly"]')?.checked
+  };
   try {
-    await window.crm.setUserApproval(input.dataset.userApproval, input.checked);
-    showToast(input.checked ? 'User approved.' : 'User access revoked.');
+    await window.crm.setUserAccess(access);
+    showToast(access.readOnly ? 'Read-only supervisor access saved.' : 'User access saved.');
   } catch (error) {
     input.checked = !input.checked;
     showToast(error.message || 'Could not update approval.');
+  }
+});
+
+async function openShareAccessDialog() {
+  closeAppMenu();
+  if (blockReadOnly()) return;
+  try {
+    el.usersDialog.close();
+    el.shareEmailInput.value = '';
+    await renderShares();
+    el.shareDialog.showModal();
+  } catch (error) {
+    showToast(error.message || 'Could not load shared access.');
+  }
+}
+
+el.shareAccessBtn.addEventListener('click', openShareAccessDialog);
+el.openShareAccessBtn.addEventListener('click', openShareAccessDialog);
+
+el.addShareBtn.addEventListener('click', async () => {
+  try {
+    await window.crm.addShare(el.shareEmailInput.value);
+    el.shareEmailInput.value = '';
+    await renderShares();
+    showToast('Read-only access shared.');
+  } catch (error) {
+    showToast(error.message || 'Could not share access.');
+  }
+});
+
+el.sharesList.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-remove-share]');
+  if (!button) return;
+  try {
+    await window.crm.removeShare(button.dataset.removeShare);
+    await renderShares();
+    showToast('Read-only access removed.');
+  } catch (error) {
+    showToast(error.message || 'Could not remove access.');
+  }
+});
+
+el.accountScopeSelect.addEventListener('change', async () => {
+  try {
+    await window.crm.setActiveAccount(el.accountScopeSelect.value);
+    state.selectedIds.clear();
+    resetForm(false);
+    setPanelOpen(false);
+    await load();
+    showToast('LaunchPad account switched.');
+  } catch (error) {
+    showToast(error.message || 'Could not switch account.');
+    renderAccountSwitcher();
   }
 });
 el.syncNowBtn.addEventListener('click', async () => {
@@ -2811,6 +2994,7 @@ el.archiveToggleBtn.addEventListener('click', () => {
 });
 
 el.editModeBtn.addEventListener('click', () => {
+  if (blockReadOnly()) return;
   state.editMode = !state.editMode;
   if (!state.editMode) state.selectedIds.clear();
   closeAppMenu();
@@ -2843,7 +3027,10 @@ el.bulkClearBtn.addEventListener('click', () => {
   renderViews();
 });
 
-el.newMerchantBtn.addEventListener('click', () => resetForm(true));
+el.newMerchantBtn.addEventListener('click', () => {
+  if (blockReadOnly()) return;
+  resetForm(true);
+});
 
 function handleKanbanClick(event) {
   const columnSelect = event.target.closest('[data-select-column-field]');
@@ -2869,6 +3056,10 @@ function handleKanbanClick(event) {
   const welcomeInput = event.target.closest('[data-welcome-email-id]');
   if (welcomeInput) {
     event.stopPropagation();
+    if (blockReadOnly()) {
+      welcomeInput.checked = !welcomeInput.checked;
+      return;
+    }
     toggleWelcomeEmailSent(welcomeInput.dataset.welcomeEmailId, welcomeInput.checked);
     return;
   }
@@ -2908,6 +3099,10 @@ function handleKanbanClick(event) {
 }
 
 function handleKanbanDragStart(event) {
+  if (state.readOnly) {
+    event.preventDefault();
+    return;
+  }
   const stageTitle = event.target.closest('[data-stage-name]');
   if (stageTitle) {
     if (!state.editMode) return;
@@ -2971,6 +3166,7 @@ function handleKanbanDragLeave(event) {
 }
 
 async function handleKanbanDrop(event) {
+  if (blockReadOnly()) return;
   const column = event.target.closest('[data-drop-field]');
   if (!column) return;
   event.preventDefault();
@@ -3074,6 +3270,7 @@ el.listView.addEventListener('click', (event) => {
 });
 
 el.importContactsBtn.addEventListener('click', async () => {
+  if (blockReadOnly()) return;
   el.importContactsBtn.disabled = true;
   el.importContactsBtn.textContent = 'Importing...';
   try {
@@ -3089,6 +3286,7 @@ el.importContactsBtn.addEventListener('click', async () => {
 });
 
 el.addContactBtn.addEventListener('click', () => {
+  if (blockReadOnly()) return;
   renderContacts([...readContacts(), { ...emptyContact(), showAll: true }]);
   markSaveButtonsDirty();
 });
@@ -3109,6 +3307,7 @@ el.contactsList.addEventListener('click', (event) => {
 
   const addPhoneButton = event.target.closest('[data-add-contact-phone]');
   if (addPhoneButton) {
+    if (blockReadOnly()) return;
     const card = addPhoneButton.closest('.contact-card');
     const container = card.querySelector('[data-contact-phones]');
     container?.querySelector('.mini-empty')?.remove();
@@ -3124,6 +3323,7 @@ el.contactsList.addEventListener('click', (event) => {
 
   const addEmailButton = event.target.closest('[data-add-contact-email]');
   if (addEmailButton) {
+    if (blockReadOnly()) return;
     const card = addEmailButton.closest('.contact-card');
     const container = card.querySelector('[data-contact-emails]');
     container?.querySelector('.mini-empty')?.remove();
@@ -3139,42 +3339,52 @@ el.contactsList.addEventListener('click', (event) => {
 
   const button = event.target.closest('[data-remove-contact]');
   if (!button) return;
+  if (blockReadOnly()) return;
   const index = Number(button.dataset.removeContact);
   renderContacts(readContacts().filter((_contact, contactIndex) => contactIndex !== index));
   markSaveButtonsDirty();
 });
 
 orderEl.addSurchargeBtn.addEventListener('click', () => {
+  if (blockReadOnly()) return;
   const info = readOrderInfo();
   info.surcharges.push({ name: '', percentage: '' });
   renderOrderInfo(info);
 });
 
 orderEl.addDiscountBtn.addEventListener('click', () => {
+  if (blockReadOnly()) return;
   const info = readOrderInfo();
   info.discounts.push({ name: '', amount: '', unit: '%' });
   renderOrderInfo(info);
 });
 
 orderEl.addHappyHourBtn.addEventListener('click', () => {
+  if (blockReadOnly()) return;
   const info = readOrderInfo();
   info.happyHours.push({ name: '', days: [], start: '', end: '', amount: '', unit: '%', note: '' });
   renderOrderInfo(info);
 });
 
 orderEl.addGratuityBtn.addEventListener('click', () => {
+  if (blockReadOnly()) return;
   const info = readOrderInfo();
   info.gratuities.push({ name: '', percentage: '', automatic: false, people: '' });
   renderOrderInfo(info);
 });
 
 orderEl.addEmployeeBtn.addEventListener('click', () => {
+  if (blockReadOnly()) return;
   const info = readOrderInfo();
   info.employees.push({ name: '', jobs: [], pin: '' });
   renderOrderInfo(info);
 });
 
 orderEl.orderInfoForm.addEventListener('click', (event) => {
+  if (state.readOnly && event.target.closest('[data-remove-surcharge], [data-remove-discount], [data-remove-happy-hour], [data-remove-gratuity], [data-remove-employee]')) {
+    blockReadOnly();
+    return;
+  }
   const info = readOrderInfo();
   const removeMap = [
     ['removeSurcharge', 'surcharges'],
@@ -3208,10 +3418,12 @@ orderEl.orderInfoForm.addEventListener('change', (event) => {
 });
 
 orderEl.saveOrderInfoBtn.addEventListener('click', async () => {
+  if (blockReadOnly()) return;
   await saveOrderInfo();
 });
 
 async function saveAccountNotes(notes) {
+  if (blockReadOnly()) return;
   if (!state.selectedId) {
     showToast('Save the merchant before adding account notes.');
     return;
@@ -3226,6 +3438,7 @@ async function saveAccountNotes(notes) {
 }
 
 orderEl.addAccountNoteBtn.addEventListener('click', async () => {
+  if (blockReadOnly()) return;
   const comments = orderEl.accountNoteInput.value.trim();
   if (!comments) {
     showToast('Type an account note first.');
@@ -3249,6 +3462,7 @@ orderEl.addAccountNoteBtn.addEventListener('click', async () => {
 orderEl.accountNotesList.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-delete-note]');
   if (!button) return;
+  if (blockReadOnly()) return;
   const merchant = selectedMerchant();
   if (!merchant) return;
   await saveAccountNotes((merchant.accountNotes || []).filter((note) => note.id !== button.dataset.deleteNote));
@@ -3256,6 +3470,7 @@ orderEl.accountNotesList.addEventListener('click', async (event) => {
 });
 
 async function saveOrderInfo() {
+  if (blockReadOnly()) return;
   if (!state.selectedId) {
     showToast('Save the merchant before saving Order Info.');
     return;
@@ -3320,6 +3535,7 @@ el.merchantMenuBtn.addEventListener('click', (event) => {
 });
 
 el.deleteMerchantMenuBtn.addEventListener('click', async () => {
+  if (blockReadOnly()) return;
   closeMerchantMenu();
   const merchant = selectedMerchant();
   if (!merchant) return;
@@ -3331,6 +3547,7 @@ el.deleteMerchantMenuBtn.addEventListener('click', async () => {
 });
 
 el.mergeMerchantBtn.addEventListener('click', () => {
+  if (blockReadOnly()) return;
   closeMerchantMenu();
   const source = selectedMerchant();
   if (!source) return;
@@ -3347,6 +3564,7 @@ el.mergeMerchantBtn.addEventListener('click', () => {
 });
 
 el.confirmMergeBtn.addEventListener('click', async () => {
+  if (blockReadOnly()) return;
   const source = selectedMerchant();
   const target = state.merchants.find((merchant) => merchant.id === el.mergeTargetSelect.value);
   if (!source || !target || source.id === target.id) return;
@@ -3366,6 +3584,7 @@ el.confirmMergeBtn.addEventListener('click', async () => {
 });
 
 async function saveMerchantFromForm() {
+  if (blockReadOnly()) return;
   const merchant = formMerchant();
   state.merchants = await window.crm.upsertMerchant(merchant);
   const saved = merchant.id
@@ -3379,10 +3598,12 @@ async function saveMerchantFromForm() {
 
 el.merchantForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (blockReadOnly()) return;
   await saveMerchantFromForm();
 });
 
 el.savePanelTopBtn.addEventListener('click', async () => {
+  if (blockReadOnly()) return;
   if (state.panelTab === 'orderInfo' || state.panelTab === 'equipment') await saveOrderInfo();
   else await saveMerchantFromForm();
 });
