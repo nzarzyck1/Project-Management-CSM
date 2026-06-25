@@ -2737,7 +2737,6 @@ async function renderUsers() {
     <div class="user-approval-row">
       <span><strong>${escapeHtml(user.email)}</strong>${user.is_admin ? '<small>Owner</small>' : ''}</span>
       <label><input type="checkbox" data-user-access="${escapeHtml(user.user_id)}" data-access-field="approved" ${user.approved ? 'checked' : ''} ${user.is_admin ? 'disabled' : ''} />Approved</label>
-      <label><input type="checkbox" data-user-access="${escapeHtml(user.user_id)}" data-access-field="readOnly" ${user.read_only ? 'checked' : ''} ${user.is_admin ? 'disabled' : ''} />Read-only</label>
     </div>
   `).join('') || '<div class="empty">No users found.</div>';
 }
@@ -2771,12 +2770,11 @@ el.usersList.addEventListener('change', async (event) => {
   const userId = input.dataset.userAccess;
   const access = {
     userId,
-    approved: row.querySelector('[data-access-field="approved"]')?.checked,
-    readOnly: row.querySelector('[data-access-field="readOnly"]')?.checked
+    approved: row.querySelector('[data-access-field="approved"]')?.checked
   };
   try {
     await window.crm.setUserAccess(access);
-    showToast(access.readOnly ? 'Read-only supervisor access saved.' : 'User access saved.');
+    showToast('User access saved.');
   } catch (error) {
     input.checked = !input.checked;
     showToast(error.message || 'Could not update approval.');

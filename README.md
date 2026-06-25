@@ -30,9 +30,9 @@ App updates do not automatically change Supabase table constraints or policies. 
 
 In Supabase, go to **Authentication > URL Configuration** and make sure the **Site URL** is not `localhost`. Set it to `https://github.com/nzarzyck1/Project-Management-CSM/releases/latest`, and add that same URL to **Redirect URLs**. LaunchPad also sends that redirect when creating new accounts, so future email verification links should land on a real page instead of a local development address.
 
-New users sign up in LaunchPad, verify their email through Supabase, and then wait for approval. The owner account can open **... > Manage Users** to grant or revoke normal app access.
+New users sign up in LaunchPad, verify their email through Supabase, and then wait for approval. The owner account can open **... > Manage Users** to grant or revoke normal app access. Approved users can write to their own LaunchPad database.
 
-To share one user's database with a supervisor, the supervisor signs up first. The account owner then opens **... > Share Access**, enters the supervisor's email, and grants read-only access. Supervisors with access to multiple users can switch between shared databases from the account dropdown under their signed-in email. Row Level Security keeps every user's merchant records isolated unless the owner explicitly shares read-only access.
+To share one user's database with a supervisor, the supervisor signs up first. The account owner then opens **... > Share Access**, enters the supervisor's email, and grants read-only access to the owner's database only. Supervisors with access to multiple users can switch between shared databases from the account dropdown under their signed-in email. Row Level Security keeps every user's merchant records isolated unless the owner explicitly shares read-only access.
 
 ## Run From Source
 

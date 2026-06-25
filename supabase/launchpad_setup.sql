@@ -102,7 +102,7 @@ security definer
 set search_path = public
 as $$
   select coalesce((
-    select approved and not read_only
+    select approved
     from public.launchpad_profiles
     where user_id = auth.uid()
   ), false);
@@ -167,6 +167,11 @@ on conflict (user_id) do update set
   email = excluded.email,
   approved = public.launchpad_profiles.approved or excluded.approved,
   is_admin = public.launchpad_profiles.is_admin or excluded.is_admin;
+
+update public.launchpad_profiles
+set read_only = false,
+    updated_at = now()
+where read_only = true;
 
 alter table public.launchpad_profiles enable row level security;
 alter table public.launchpad_merchants enable row level security;

@@ -459,9 +459,9 @@ async function availableAccountScopes(session = null) {
       ownerUserId: user.id,
       ownerEmail: profile.email || user.email || '',
       label: `${userLabel(profile.email || user.email)} (Mine)`,
-      accessLevel: profile.readOnly ? 'read' : 'write',
+      accessLevel: 'write',
       isOwn: true,
-      canWrite: !profile.readOnly
+      canWrite: true
     });
   }
   try {
@@ -823,7 +823,7 @@ ipcMain.handle('auth:setApproval', async (_event, { userId, approved }) => {
   return true;
 });
 
-ipcMain.handle('auth:setAccess', async (_event, { userId, approved, readOnly }) => {
+ipcMain.handle('auth:setAccess', async (_event, { userId, approved }) => {
   const profile = await currentUserProfile();
   if (!profile.isAdmin) throw new Error('Administrator access is required.');
   await supabaseFetch(`/rest/v1/${SUPABASE_PROFILE_TABLE}?user_id=eq.${encodeURIComponent(userId)}`, {
@@ -831,7 +831,7 @@ ipcMain.handle('auth:setAccess', async (_event, { userId, approved, readOnly }) 
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
       approved: Boolean(approved),
-      read_only: Boolean(readOnly),
+      read_only: false,
       updated_at: new Date().toISOString()
     })
   });
