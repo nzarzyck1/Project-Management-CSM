@@ -464,12 +464,13 @@ async function availableAccountScopes(session = null) {
     });
   }
   try {
+    const viewerEmail = String(user.email || '').trim().toLowerCase();
     const rows = await supabaseFetch(
-      `/rest/v1/${SUPABASE_ACCESS_TABLE}?viewer_user_id=eq.${encodeURIComponent(user.id)}&select=owner_user_id,owner_email,access_level&order=owner_email.asc`,
+      `/rest/v1/${SUPABASE_ACCESS_TABLE}?or=(viewer_user_id.eq.${encodeURIComponent(user.id)},viewer_email.eq.${encodeURIComponent(viewerEmail)})&select=id,owner_user_id,owner_email,viewer_user_id,access_level&order=owner_email.asc`,
       { method: 'GET' }
     );
-    rows.forEach((row) => {
-      if (!row.owner_user_id || row.owner_user_id === user.id) return;
+    for (const row of rows) {
+      if (!row.owner_user_id || row.owner_user_id === user.id) continue;
       scopes.push({
         ownerUserId: row.owner_user_id,
         ownerEmail: row.owner_email || '',
@@ -478,7 +479,7 @@ async function availableAccountScopes(session = null) {
         isOwn: false,
         canWrite: false
       });
-    });
+    }
   } catch (error) {
     console.error(error);
   }
@@ -840,7 +841,7 @@ ipcMain.handle('share:list', async () => {
   const context = await currentAccountContext();
   if (!context.user?.id || !context.profile.approved) throw new Error('Your account must be approved before sharing.');
   return supabaseFetch(
-    `/rest/v1/${SUPABASE_ACCESS_TABLE}?owner_user_id=eq.${encodeURIComponent(context.user.id)}&select=id,viewer_email,access_level,created_at&order=viewer_email.asc`,
+    `/rest/v1/${SUPABASE_ACCESS_TABLE}?owner_user_id=eq.${encodeURIComponent(context.user.id)}&select=id,viewer_user_id,viewer_email,access_level,created_at&order=viewer_email.asc`,
     { method: 'GET' }
   );
 });
@@ -856,17 +857,30 @@ ipcMain.handle('share:add', async (_event, email) => {
     { method: 'GET' }
   );
   const viewer = viewers?.[0];
-  if (!viewer?.user_id) throw new Error('That supervisor needs to sign up for LaunchPad first.');
-  await supabaseFetch(`/rest/v1/${SUPABASE_ACCESS_TABLE}?on_conflict=owner_user_id,viewer_user_id`, {
+  const existing = await supabaseFetch(
+    `/rest/v1/${SUPABASE_ACCESS_TABLE}?owner_user_id=eq.${encodeURIComponent(context.user.id)}&viewer_email=eq.${encodeURIComponent(viewerEmail)}&select=id`,
+    { method: 'GET' }
+  );
+  const payload = {
+    owner_user_id: context.user.id,
+    owner_email: context.user.email || context.profile.email || '',
+    viewer_user_id: viewer?.user_id || null,
+    viewer_email: viewer?.email || viewerEmail,
+    access_level: 'read',
+    updated_at: new Date().toISOString()
+  };
+  if (existing?.[0]?.id) {
+    await supabaseFetch(`/rest/v1/${SUPABASE_ACCESS_TABLE}?id=eq.${encodeURIComponent(existing[0].id)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(payload)
+    });
+    return true;
+  }
+  await supabaseFetch(`/rest/v1/${SUPABASE_ACCESS_TABLE}`, {
     method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-    body: JSON.stringify([{
-      owner_user_id: context.user.id,
-      owner_email: context.user.email || context.profile.email || '',
-      viewer_user_id: viewer.user_id,
-      viewer_email: viewer.email || viewerEmail,
-      access_level: 'read'
-    }])
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify([payload])
   });
   return true;
 });

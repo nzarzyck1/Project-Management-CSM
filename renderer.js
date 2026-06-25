@@ -2747,7 +2747,7 @@ async function renderShares() {
   el.sharesList.innerHTML = shares.length
     ? shares.map((share) => `
       <div class="user-approval-row">
-        <span><strong>${escapeHtml(share.viewer_email)}</strong><small>Read-only</small></span>
+        <span><strong>${escapeHtml(share.viewer_email)}</strong><small>${share.viewer_user_id ? 'Read-only' : 'Pending sign-up'}</small></span>
         <button class="secondary danger" type="button" data-remove-share="${escapeHtml(share.id)}">Remove</button>
       </div>
     `).join('')
@@ -2804,7 +2804,7 @@ el.addShareBtn.addEventListener('click', async () => {
     await window.crm.addShare(el.shareEmailInput.value);
     el.shareEmailInput.value = '';
     await renderShares();
-    showToast('Read-only access shared.');
+    showToast('Read-only invite saved.');
   } catch (error) {
     showToast(error.message || 'Could not share access.');
   }

@@ -28,13 +28,18 @@ create table if not exists public.launchpad_account_access (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid not null references auth.users(id) on delete cascade,
   owner_email text not null,
-  viewer_user_id uuid not null references auth.users(id) on delete cascade,
+  viewer_user_id uuid references auth.users(id) on delete cascade,
   viewer_email text not null,
   access_level text not null default 'read' check (access_level = 'read'),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (owner_user_id, viewer_user_id)
+  updated_at timestamptz not null default now()
 );
+
+alter table public.launchpad_account_access
+alter column viewer_user_id drop not null;
+
+alter table public.launchpad_account_access
+drop constraint if exists launchpad_account_access_owner_user_id_viewer_user_id_key;
 
 create index if not exists launchpad_merchants_user_updated_idx
 on public.launchpad_merchants (user_id, updated_at desc);
@@ -50,6 +55,9 @@ on public.launchpad_account_access (owner_user_id, viewer_email);
 
 create index if not exists launchpad_account_access_viewer_idx
 on public.launchpad_account_access (viewer_user_id, owner_email);
+
+create unique index if not exists launchpad_account_access_owner_viewer_email_idx
+on public.launchpad_account_access (owner_user_id, lower(viewer_email));
 
 create or replace function public.launchpad_is_admin()
 returns boolean
@@ -97,7 +105,10 @@ as $$
     select 1
     from public.launchpad_account_access access
     where access.owner_user_id = owner_id
-      and access.viewer_user_id = auth.uid()
+      and (
+        access.viewer_user_id = auth.uid()
+        or lower(access.viewer_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      )
       and access.access_level = 'read'
   );
 $$;
@@ -160,7 +171,12 @@ with check (public.launchpad_is_admin());
 drop policy if exists "launchpad_account_access_select" on public.launchpad_account_access;
 create policy "launchpad_account_access_select"
 on public.launchpad_account_access for select to authenticated
-using (auth.uid() = owner_user_id or auth.uid() = viewer_user_id or public.launchpad_is_admin());
+using (
+  auth.uid() = owner_user_id
+  or auth.uid() = viewer_user_id
+  or lower(viewer_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  or public.launchpad_is_admin()
+);
 
 drop policy if exists "launchpad_account_access_insert" on public.launchpad_account_access;
 create policy "launchpad_account_access_insert"
