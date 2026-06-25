@@ -531,7 +531,7 @@ async function writeOnlineMerchants(merchants) {
   const nextIds = new Set(merchants.map((merchant) => merchant.id));
   const removeIds = existingRows.map((row) => row.id).filter((id) => !nextIds.has(id));
   if (removeIds.length) {
-    await supabaseFetch(`/rest/v1/${SUPABASE_TABLE}?id=in.(${removeIds.map(encodeURIComponent).join(',')})`, {
+    await supabaseFetch(`/rest/v1/${SUPABASE_TABLE}?user_id=eq.${encodeURIComponent(context.ownerUserId)}&id=in.(${removeIds.map(encodeURIComponent).join(',')})`, {
       method: 'DELETE'
     });
   }
@@ -556,10 +556,6 @@ async function readMerchantsFromBestSource() {
       if (merchants.length) {
         await writeUserCache(context.ownerUserId, merchants);
         return merchants;
-      }
-      const localMerchants = context.canWrite ? await readMerchants() : [];
-      if (context.canWrite && localMerchants.length) {
-        return writeOnlineMerchants(localMerchants);
       }
       return [];
     } catch (error) {

@@ -12,7 +12,7 @@ alter table public.launchpad_profiles
 add column if not exists read_only boolean not null default false;
 
 create table if not exists public.launchpad_merchants (
-  id text primary key,
+  id text not null,
   user_id uuid not null references auth.users(id) on delete cascade,
   dba_name text,
   mid text,
@@ -21,7 +21,8 @@ create table if not exists public.launchpad_merchants (
   programming_type text,
   merchant_data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
 );
 
 create table if not exists public.launchpad_account_access (
@@ -55,6 +56,12 @@ alter column viewer_user_id drop not null;
 
 alter table public.launchpad_account_access
 drop constraint if exists launchpad_account_access_owner_user_id_viewer_user_id_key;
+
+alter table public.launchpad_merchants
+drop constraint if exists launchpad_merchants_pkey;
+
+alter table public.launchpad_merchants
+add primary key (user_id, id);
 
 create index if not exists launchpad_merchants_user_updated_idx
 on public.launchpad_merchants (user_id, updated_at desc);
