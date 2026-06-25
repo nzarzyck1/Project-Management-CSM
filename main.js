@@ -340,7 +340,7 @@ async function supabaseFetch(pathname, options = {}, requireAuth = true) {
   const body = text ? JSON.parse(text) : null;
   if (!response.ok) {
     const message = body?.msg || body?.message || response.statusText;
-    if (/schema cache|Could not find the table|launchpad_profiles|launchpad_account_access/i.test(message || '')) {
+    if (/schema cache|Could not find the table|launchpad_profiles|launchpad_account_access|viewer_user_id|null value|not-null constraint/i.test(message || '')) {
       throw new Error(`LaunchPad needs the latest Supabase setup. Run supabase/launchpad_setup.sql in the Supabase SQL Editor, then reload the app. Supabase said: ${message}`);
     }
     throw new Error(message);

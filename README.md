@@ -26,6 +26,8 @@ Run the complete [`supabase/launchpad_setup.sql`](supabase/launchpad_setup.sql) 
 
 If the app shows an error about `public.launchpad_profiles` or `public.launchpad_account_access` missing from the schema cache, the Supabase setup has not been applied to the live project yet. Open Supabase, go to **SQL Editor**, paste the full contents of `supabase/launchpad_setup.sql`, run it, then restart or sync LaunchPad.
 
+App updates do not automatically change Supabase table constraints or policies. When a release includes changes to `supabase/launchpad_setup.sql`, run that SQL once in Supabase before using the new database-backed feature.
+
 New users sign up in LaunchPad, verify their email through Supabase, and then wait for approval. The owner account can open **... > Manage Users** to grant or revoke normal app access.
 
 To share one user's database with a supervisor, the supervisor signs up first. The account owner then opens **... > Share Access**, enters the supervisor's email, and grants read-only access. Supervisors with access to multiple users can switch between shared databases from the account dropdown under their signed-in email. Row Level Security keeps every user's merchant records isolated unless the owner explicitly shares read-only access.
