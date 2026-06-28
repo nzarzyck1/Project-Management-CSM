@@ -600,7 +600,7 @@ async function checkForUpdates(manual = false) {
   updateCheckWasManual = manual;
   lastUpdateCheckAt = Date.now();
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = false;
   try {
     if (manual) sendUpdateStatus('checking', 'Checking for updates...');
     await autoUpdater.checkForUpdates();
@@ -652,7 +652,7 @@ function setupAutoUpdater() {
       defaultId: 0,
       cancelId: 1
     });
-    if (response.response === 0) autoUpdater.quitAndInstall(false, true);
+    if (response.response === 0) autoUpdater.quitAndInstall(true, true);
   });
 
   autoUpdater.on('error', (error) => {
