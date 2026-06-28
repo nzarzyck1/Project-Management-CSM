@@ -10,7 +10,7 @@ const VIEWS = [
   { id: 'programming-kanban', label: 'Type' },
   { id: 'list', label: 'List' }
 ];
-const EQUIPMENT_TYPES = ['Shift4 Dine Workstations', 'Customer Facing Displays', 'Kitchen Display Screens', 'Remote Impact Printers', 'Remote Thermal Printers', 'Kiosk', 'Shift4 Duo', 'Tablet', 'Handheld', 'Caller ID Analog', 'Q25', 'Scanners'];
+const EQUIPMENT_TYPES = ['Shift4 Dine Workstations', 'Customer Facing Displays', 'Kitchen Display Screens', 'Remote Impact Printers', 'Remote Thermal Printers', 'Kiosk', 'Shift4 Duo', 'Tablet', 'Handheld', 'Caller ID Analog', 'Q25', 'Scanners', 'Scale'];
 const TAX_CLASSES = ['Food', 'Beverage', 'Retail', 'Beer', 'Liquor', 'Wine'];
 const ADVANTAGE_SURCHARGES = ['Dual Pricing', 'Supplemental Fee', 'Cash Discount', 'None'];
 const ADVANTAGE_RATES = ['', '3.0', '3.25', '3.5', '3.75', '4'];
@@ -1630,38 +1630,48 @@ Below is a recap of the topics we discussed, along with the next steps:<br><br>
 1. Tentative Install & Go Live Dates:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Tentative Install Date/Time: ${escapeHtml(formatDisplayDateTime(combinedInstallationDateTime()))}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Tentative Go Live Date: ${escapeHtml(formatInstallationDateForTemplate(fields.goLiveDate.value))}<br>
+<br>
 2. Site Readiness:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- To avoid any delays or technical issues on the installation day, please ensure that all network requirements are met as per the document available here:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- ${htmlLink(ORDER_LINKS.siteReadiness)}<br>
+<br>
 3. Gift Cards:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Conversion Needed: ${giftCardConversionHtml}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- ${htmlLink(ORDER_LINKS.giftCardFaq)}<br>
+<br>
 4. Financial Configuration:<br>
 ${taxHtml}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Surcharges: ${escapeHtml(surcharges)}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Discounts: ${discountHtmlLines.length ? discountHtmlLines.join('; ') : 'No'}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Gratuities: ${gratuityLines.length ? gratuityLines.map(escapeHtml).join('; ') : 'No'}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Tipping Set Up: ${escapeHtml(info.tipOutMethod)}<br>
+<br>
 5. Shipping and Equipment:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Equipment:<br>${equipment.map((item) => `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- ${escapeHtml(item.name)}: ${escapeHtml(item.qty)}`).join('<br>')}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Shipping Address: ${escapeHtml(shippingAddress)}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Shipping Method: Ground<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Installation Address: ${escapeHtml(info.businessAddress)}<br>
+<br>
 6. Contacts:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Main Contact: ${escapeHtml(info.mainContact)}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Menu Questions Contact: ${escapeHtml(info.menuQuestionsContact)}<br>
+<br>
 7. Hardware and Layout:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Printer/KDS Names: ${escapeHtml(printerKds)}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Floor Plan: ${floorPlan}<br>
+<br>
 8. Menu:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Details: ${menuDetails}<br>
+<br>
 9. Employees:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Details: ${employeeDetails}<br>
+<br>
 10. Additional Integrations:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- OLO: ${escapeHtml(info.oloEnabled)}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Schedule: ${escapeHtml(oloSchedule)}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- Customer Database: ${customerDb}<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- 3rd Party: ${escapeHtml(thirdParty)}<br>
+<br>
 11. Training:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- To prepare for your new Shift4 Dine POS System, please visit our Resource Center for videos and walkthroughs on how to use Shift4 Dine.<br>
 &nbsp;&nbsp;&nbsp;&nbsp;- <strong>Video Tutorials To Get You Started:</strong><br>
