@@ -1516,6 +1516,17 @@ form,
   align-items: end;
 }
 
+.surcharge-fields {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) minmax(125px, 1fr) minmax(80px, 0.65fr) 64px;
+  gap: 8px;
+  align-items: end;
+}
+
+.surcharge-fields label:last-child select {
+  min-width: 58px;
+}
+
 .gratuity-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 88px 44px 58px;

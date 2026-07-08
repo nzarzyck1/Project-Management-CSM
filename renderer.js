@@ -1019,7 +1019,7 @@ function defaultOrderInfo() {
     taxClasses: [],
     taxAddedAlcohol: false,
     taxHiddenAlcohol: false,
-    surcharges: [{ name: 'Advantage Program', type: 'Dual Pricing', percentage: '' }],
+    surcharges: [{ name: 'Advantage Program', type: 'Dual Pricing', percentage: '', unit: '%', notes: '' }],
     discounts: [],
     happyHourEnabled: false,
     happyHours: [],
@@ -1077,7 +1077,11 @@ function orderInfoWithDefaults(orderInfo = {}) {
       return { name, qty: existing?.qty || '' };
     }),
     thirdParty: THIRD_PARTIES.map((name) => ({ ...defaults.thirdParty.find((item) => item.name === name), ...(orderInfo.thirdParty || []).find((item) => item.name === name) })),
-    surcharges: orderInfo.surcharges?.length ? orderInfo.surcharges : defaults.surcharges,
+    surcharges: (orderInfo.surcharges?.length ? orderInfo.surcharges : defaults.surcharges).map((item) => ({
+      ...item,
+      unit: item.unit || '%',
+      notes: item.notes || ''
+    })),
     discounts: orderInfo.discounts || [],
     happyHours: orderInfo.happyHours || [],
     gratuities: orderInfo.gratuities || [],
@@ -1175,8 +1179,9 @@ function renderSurcharges(surcharges = []) {
     <div class="repeat-card" data-surcharge-index="${index}">
       <div class="repeat-card-header"><strong>${index === 0 ? 'Advantage Program' : 'Additional Surcharge'}</strong><button class="secondary" type="button" data-remove-surcharge="${index}">Remove</button></div>
       ${index === 0
-        ? `<div class="triple-row"><label>Name<input data-surcharge-field="name" value="Advantage Program" readonly /></label><label>Type<select data-surcharge-field="type">${optionList(ADVANTAGE_SURCHARGES, item.type)}</select></label><label>Percent<select data-surcharge-field="percentage">${optionList(ADVANTAGE_RATES, item.percentage)}</select></label></div>`
-        : `<div class="triple-row"><label>Name<input data-surcharge-field="name" value="${escapeHtml(item.name)}" /></label><label>Percent<input data-surcharge-field="percentage" value="${escapeHtml(item.percentage)}" /></label><span>%</span></div>`}
+        ? `<div class="surcharge-fields"><label>Name<input data-surcharge-field="name" value="Advantage Program" readonly /></label><label>Type<select data-surcharge-field="type">${optionList(ADVANTAGE_SURCHARGES, item.type)}</select></label><label>Amount<select data-surcharge-field="percentage">${optionList(ADVANTAGE_RATES, item.percentage)}</select></label><label>Unit<select data-surcharge-field="unit">${optionList(['%', '$'], item.unit || '%')}</select></label></div>`
+        : `<div class="surcharge-fields"><label>Name<input data-surcharge-field="name" value="${escapeHtml(item.name)}" /></label><label>Amount<input data-surcharge-field="percentage" value="${escapeHtml(item.percentage)}" /></label><label>Unit<select data-surcharge-field="unit">${optionList(['%', '$'], item.unit || '%')}</select></label></div>`}
+      <label>Notes<input data-surcharge-field="notes" value="${escapeHtml(item.notes || '')}" /></label>
     </div>
   `).join('');
 }
@@ -1500,6 +1505,11 @@ function formatMoneyPercent(item) {
   return `${item.name}: ${item.amount}${item.unit || '%'}`;
 }
 
+function formatSurchargeAmount(item) {
+  if (!item.percentage) return '';
+  return item.unit === '$' ? `$${item.percentage}` : `${item.percentage}%`;
+}
+
 function buildProgrammingNotes(info, context = {}) {
   const separator = '   ///   ';
   const parts = [];
@@ -1510,7 +1520,7 @@ function buildProgrammingNotes(info, context = {}) {
 
   const additionalSurcharges = (info.surcharges || [])
     .filter((item) => item.name && item.name !== 'Advantage Program')
-    .map((item) => `${item.name}${item.percentage ? `: ${item.percentage}%` : ''}`);
+    .map((item) => `${item.name}${item.percentage ? `: ${formatSurchargeAmount(item)}` : ''}${item.notes ? ` (${item.notes})` : ''}`);
   if (additionalSurcharges.length) parts.push(`Surcharges: ${additionalSurcharges.join('; ')}`);
 
   const discounts = [
@@ -1576,9 +1586,9 @@ function renderOrderEmail() {
     .filter((item) => item.name || item.type)
     .map((item) => {
       if (item.name === 'Advantage Program') {
-        return item.type === 'None' ? '' : `Advantage Program: ${item.type || 'None'}${item.percentage ? ` ${item.percentage}%` : ''}`;
+        return item.type === 'None' ? '' : `Advantage Program: ${item.type || 'None'}${item.percentage ? ` ${formatSurchargeAmount(item)}` : ''}${item.notes ? ` (${item.notes})` : ''}`;
       }
-      return `${item.name}: ${item.percentage || ''}%`;
+      return `${item.name}${item.percentage ? `: ${formatSurchargeAmount(item)}` : ''}${item.notes ? ` (${item.notes})` : ''}`;
     })
     .filter(Boolean);
   const surcharges = surchargeLines.length ? surchargeLines.join('; ') : 'None';
@@ -1624,7 +1634,7 @@ function renderOrderEmail() {
   const customerDbText = info.customerDatabase === 'Customer will Provide' ? 'Customer will Provide' : 'No';
   const thirdParty = info.thirdParty.filter((item) => item.selected).map((item) => `${item.name}${item.amount ? ` (${item.amount}${item.unit || '%'})` : ''}`).join(', ') || 'None';
 
-  const html = `Hello ${escapeHtml(firstName(currentMerchantName()))}<br><br>
+  const html = `Hello ${escapeHtml(firstName(currentMerchantName()))},<br><br>
 It was a pleasure speaking with you earlier and discussing your Shift4 Dine POS order. I've compiled the notes from our call and outlined the critical points that we needed to address to ensure a smooth installation and go-live process.<br><br>
 Below is a recap of the topics we discussed, along with the next steps:<br><br>
 1. Tentative Install & Go Live Dates:<br>
@@ -3363,7 +3373,7 @@ el.contactsList.addEventListener('click', (event) => {
 orderEl.addSurchargeBtn.addEventListener('click', () => {
   if (blockReadOnly()) return;
   const info = readOrderInfo();
-  info.surcharges.push({ name: '', percentage: '' });
+  info.surcharges.push({ name: '', percentage: '', unit: '%', notes: '' });
   renderOrderInfo(info);
 });
 
