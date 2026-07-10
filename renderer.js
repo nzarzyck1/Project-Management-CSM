@@ -36,9 +36,9 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_item, index) => {
 const ORDER_LINKS = {
   siteReadiness: { label: 'S4 - Customer Site Readiness Guide', url: 'https://shift4.zendesk.com/hc/en-us/articles/19349224790675-SkyTab-Customer-Site-Readiness-Guide' },
   giftCardFaq: { label: 'Gift Card FAQ', url: 'https://shift4.zendesk.com/hc/en-us/articles/4402400530195-Gift-Card-Program-FAQs' },
-  lighthouse: { label: 'Lighthouse Business Manager', url: 'https://www.youtube.com/playlist?list=PL0ZbOI7EXtQT4bTR8zEL0mDyNwk1lDGxH' },
-  managerTraining: { label: 'Manager Training Videos', url: 'https://www.youtube.com/playlist?list=PL0ZbOI7EXtQT5vAWBODNHrENfXTFrEMAI' },
-  employeeTraining: { label: 'Employee Training Videos', url: 'https://www.youtube.com/playlist?list=PL0ZbOI7EXtQTSwgSaNglH8EcyDNXEkK3g' }
+  lighthouse: { label: 'Customer Hub Basics', url: 'https://www.youtube.com/playlist?list=PL0ZbOI7EXtQSTqt6Vmp74KQf6987m-Cg5' },
+  managerTraining: { label: 'Manager Training Videos', url: 'https://www.youtube.com/playlist?list=PL0ZbOI7EXtQQSgLghkU66O1pcJ5OW_BDg' },
+  employeeTraining: { label: 'Employee Training Videos', url: 'https://www.youtube.com/playlist?list=PL0ZbOI7EXtQQzKPxOXVgGLnxzpjLQ8R1s' }
 };
 
 const TEMPLATES = [

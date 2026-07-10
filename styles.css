@@ -1196,6 +1196,7 @@ tr:hover {
 #orderInfoForm {
   display: block;
   column-count: 3;
+  column-width: 260px;
   column-gap: 8px;
   align-items: start;
 }
@@ -1491,18 +1492,28 @@ form,
 }
 
 .equipment-row {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(52px, auto);
   align-items: end;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .equipment-qty-label {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.equipment-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .equipment-qty-label input {
   width: 58px;
+  min-width: 0;
 }
 
 .day-row {
