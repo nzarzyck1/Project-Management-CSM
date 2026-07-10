@@ -539,6 +539,7 @@ input,
 select,
 textarea {
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 4px 6px;
@@ -1195,7 +1196,7 @@ tr:hover {
 
 #orderInfoForm {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
   gap: 8px;
   align-items: start;
 }
@@ -1398,6 +1399,8 @@ form,
 .order-section {
   display: grid;
   gap: 7px;
+  min-width: 0;
+  overflow: hidden;
   margin: 0 0 8px;
   padding: 8px;
   border: 1px solid var(--line);
@@ -1467,6 +1470,8 @@ form,
 .day-row {
   display: grid;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1477,6 +1482,8 @@ form,
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .repeat-card-header button {
@@ -1486,7 +1493,7 @@ form,
 
 .compact-row,
 .day-row {
-  grid-template-columns: minmax(0, 1fr) minmax(90px, 0.45fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   align-items: end;
 }
 
@@ -1516,30 +1523,30 @@ form,
 }
 
 .day-row {
-  grid-template-columns: minmax(56px, 0.25fr) minmax(0, 1fr);
+  grid-template-columns: minmax(min-content, 0.35fr) minmax(0, 1fr);
 }
 
 .triple-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(90px, 0.4fr) minmax(70px, 0.35fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(110px, 100%), 1fr));
   gap: 8px;
   align-items: end;
 }
 
 .surcharge-fields {
   display: grid;
-  grid-template-columns: minmax(150px, 1.4fr) minmax(125px, 1fr) minmax(80px, 0.65fr) 64px;
+  grid-template-columns: repeat(auto-fit, minmax(min(118px, 100%), 1fr));
   gap: 8px;
   align-items: end;
 }
 
 .surcharge-fields label:last-child select {
-  min-width: 58px;
+  min-width: 0;
 }
 
 .gratuity-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 88px 44px 58px;
+  grid-template-columns: repeat(auto-fit, minmax(min(84px, 100%), 1fr));
   gap: 8px;
   align-items: end;
 }
@@ -1560,7 +1567,7 @@ form,
 
 .time-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
   gap: 8px;
 }
 
@@ -1571,6 +1578,7 @@ form,
 label {
   display: grid;
   gap: 5px;
+  min-width: 0;
   color: var(--muted);
   font-size: 13px;
   font-weight: 650;
