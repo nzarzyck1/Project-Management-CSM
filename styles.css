@@ -1194,15 +1194,14 @@ tr:hover {
 }
 
 #orderInfoForm {
-  display: block;
-  column-count: 3;
-  column-width: 260px;
-  column-gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 8px;
   align-items: start;
 }
 
 #orderInfoForm .form-actions {
-  break-inside: avoid;
+  grid-column: 1 / -1;
   margin: 0 0 8px;
 }
 
@@ -1667,7 +1666,7 @@ label {
   }
 
   #orderInfoForm {
-    column-count: 1;
+    grid-template-columns: 1fr;
   }
 
   .calendar-weekdays,
