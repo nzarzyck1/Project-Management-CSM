@@ -1195,14 +1195,13 @@ tr:hover {
 }
 
 #orderInfoForm {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
-  gap: 8px;
-  align-items: start;
+  display: block;
+  column-width: 340px;
+  column-gap: 8px;
 }
 
 #orderInfoForm .form-actions {
-  grid-column: 1 / -1;
+  column-span: all;
   margin: 0 0 8px;
 }
 
@@ -1397,7 +1396,8 @@ form,
 }
 
 .order-section {
-  display: grid;
+  display: inline-grid;
+  width: 100%;
   gap: 7px;
   min-width: 0;
   overflow: hidden;
@@ -1674,7 +1674,8 @@ label {
   }
 
   #orderInfoForm {
-    grid-template-columns: 1fr;
+    column-width: auto;
+    column-count: 1;
   }
 
   .calendar-weekdays,
