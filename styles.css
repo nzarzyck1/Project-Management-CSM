@@ -1585,9 +1585,22 @@ label {
 }
 
 .email-panel {
+  min-width: 0;
+  padding-bottom: 18px;
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
+}
+
+.email-panel .form-actions {
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+
+.email-panel .form-actions button {
+  min-height: 30px;
 }
 
 #emailOutput,

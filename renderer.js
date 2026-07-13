@@ -1574,6 +1574,7 @@ function renderOrderEmail() {
   orderEl.orderSubjectOutput.value = renderSubject(ORDER_RECAP_SUBJECT);
   info.mainContact = info.mainContact || currentMerchantName();
   info.menuQuestionsContact = info.menuQuestionsContact || currentMerchantName();
+  const greetingName = firstName(info.mainContact || currentMerchantName());
   const equipment = selectedEquipment(info);
   const hasPrinterKds = equipment.some((item) => ['Remote Impact Printers', 'Remote Thermal Printers', 'Kitchen Display Screens'].includes(item.name));
   const printerKds = hasPrinterKds ? lineValue(info.printerKdsNames, '[Printer/KDS names]') : 'No';
@@ -1634,7 +1635,7 @@ function renderOrderEmail() {
   const customerDbText = info.customerDatabase === 'Customer will Provide' ? 'Customer will Provide' : 'No';
   const thirdParty = info.thirdParty.filter((item) => item.selected).map((item) => `${item.name}${item.amount ? ` (${item.amount}${item.unit || '%'})` : ''}`).join(', ') || 'None';
 
-  const html = `Hello ${escapeHtml(firstName(currentMerchantName()))},<br><br>
+  const html = `Hello ${escapeHtml(greetingName)},<br><br>
 It was a pleasure speaking with you earlier and discussing your Shift4 Dine POS order. I've compiled the notes from our call and outlined the critical points that we needed to address to ensure a smooth installation and go-live process.<br><br>
 Below is a recap of the topics we discussed, along with the next steps:<br><br>
 1. Tentative Install & Go Live Dates:<br>
