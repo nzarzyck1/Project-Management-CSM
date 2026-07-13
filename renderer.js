@@ -906,7 +906,11 @@ function contactByType(contacts, type) {
 }
 
 function renderContacts(contacts = []) {
-  const normalized = validContacts(contacts);
+  const editable = (contacts || [])
+    .map(normalizeContact)
+    .filter((contact) => contact.showAll || contact.name || contact.emails.length || contact.phones.length);
+  const draftContacts = editable.filter((contact) => contact.showAll && !contact.name && !contact.emails.length && !contact.phones.length);
+  const normalized = [...sortContacts(editable.filter((contact) => !draftContacts.includes(contact))), ...draftContacts];
   el.contactsList.innerHTML = normalized.length
     ? normalized.map((contact, index) => {
       const phones = contact.phones.length ? contact.phones : contact.showAll ? [''] : [];
@@ -3314,6 +3318,7 @@ el.importContactsBtn.addEventListener('click', async () => {
 el.addContactBtn.addEventListener('click', () => {
   if (blockReadOnly()) return;
   renderContacts([...readContacts(), { ...emptyContact(), showAll: true }]);
+  el.contactsList.querySelector('.contact-card:last-child [data-contact-field="name"]')?.focus();
   markSaveButtonsDirty();
 });
 
