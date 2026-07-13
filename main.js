@@ -152,7 +152,7 @@ function mapRow(row) {
 
 function cleanContactName(value) {
   const cleaned = String(value || '')
-    .replace(/\b(ContactGroup|OWNER|REP|CONTACT|TRUE|FALSE|TextMe|Name|Email|Phone)\b/gi, ' ')
+    .replace(/\b(ContactGroup|OWNER|REP|CONTACT|ISO|TRUE|FALSE|TextMe|Name|Email|Phone)\b/gi, ' ')
     .replace(/\[[^\]]+\]/g, ' ')
     .replace(/\([^)]*\)/g, ' ')
     .replace(/[^a-zA-Z.' -]/g, ' ')
@@ -182,8 +182,9 @@ function normalizeContactType(value) {
   const cleaned = String(value || '').trim().toUpperCase();
   if (cleaned.includes('OWNER')) return 'Owner';
   if (cleaned.includes('REP')) return 'Rep';
+  if (cleaned.includes('ISO')) return 'ISO';
   if (cleaned.includes('CONTACT')) return 'Contact';
-  return '';
+  return 'Contact';
 }
 
 function normalizeOcrEmail(value) {
@@ -211,7 +212,7 @@ function parseContactsFromText(text) {
       .trim();
     if (!raw || skipPattern.test(raw)) return;
 
-    const typeMatch = raw.match(/\b(OWNER|REP|CONTACT)\b/i);
+    const typeMatch = raw.match(/\b(OWNER|REP|CONTACT|ISO)\b/i);
     const type = normalizeContactType(typeMatch?.[0] || '');
     const emailMatch = [...raw.matchAll(emailPattern)][0];
     const email = normalizeOcrEmail(emailMatch?.[0] || '');
@@ -223,7 +224,7 @@ function parseContactsFromText(text) {
     nameSource = nameSource
       .replace(emailPattern, ' ')
       .replace(phonePattern, ' ')
-      .replace(/\b(OWNER|REP|CONTACT)\b/gi, ' ');
+      .replace(/\b(OWNER|REP|CONTACT|ISO)\b/gi, ' ');
     const name = cleanContactName(nameSource);
 
     if (!name && !email && !phone) return;

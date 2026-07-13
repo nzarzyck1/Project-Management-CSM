@@ -1350,7 +1350,7 @@ form,
 
 .contact-primary-row {
   display: grid;
-  grid-template-columns: minmax(75px, 0.4fr) minmax(150px, 1fr) minmax(150px, 0.8fr) auto;
+  grid-template-columns: minmax(95px, 0.45fr) minmax(150px, 1fr) minmax(180px, 0.9fr) auto;
   gap: 6px;
   align-items: end;
 }
@@ -1363,13 +1363,13 @@ form,
 
 .contact-input-copy {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 5px;
 }
 
 .contact-method-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: end;
   margin-bottom: 4px;
@@ -1381,6 +1381,10 @@ form,
 
 .contact-method-row button {
   padding: 4px 7px;
+}
+
+.remove-contact-method {
+  color: var(--danger);
 }
 
 .contact-email-rows,

@@ -17,6 +17,7 @@ const ADVANTAGE_RATES = ['', '3.0', '3.25', '3.5', '3.75', '4'];
 const WEEK_DAYS = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Sun'];
 const EMPLOYEE_JOBS = ['Owner', 'Manager', 'Bartender', 'Server', 'Cashier', 'BOH'];
 const THIRD_PARTIES = ['Doordash', 'GrubHub', 'UberEats'];
+const CONTACT_TYPES = ['Owner', 'Rep', 'Contact', 'ISO'];
 const CARD_FIELD_OPTIONS = [
   { id: 'mid', label: 'MID' },
   { id: 'install', label: 'Install Date' },
@@ -806,7 +807,7 @@ function renderSubject(templateText) {
 }
 
 function emptyContact() {
-  return { id: `contact-${Date.now()}-${Math.random().toString(16).slice(2)}`, type: '', name: '', email: '', phone: '', emails: [], phones: [] };
+  return { id: `contact-${Date.now()}-${Math.random().toString(16).slice(2)}`, type: 'Contact', name: '', email: '', phone: '', emails: [], phones: [] };
 }
 
 function normalizeTextList(values) {
@@ -856,15 +857,18 @@ function normalizeContactType(value) {
   const cleaned = cleanKey(value);
   if (cleaned.includes('owner')) return 'Owner';
   if (cleaned.includes('rep')) return 'Rep';
+  if (cleaned.includes('iso')) return 'ISO';
   if (cleaned.includes('contact')) return 'Contact';
-  return String(value || '').trim();
+  return String(value || '').trim() || 'Contact';
 }
 
 function contactRank(contact) {
   const type = cleanKey(contact.type);
   if (type === 'owner') return 0;
   if (type === 'rep') return 1;
-  return 2;
+  if (type === 'contact') return 2;
+  if (type === 'iso') return 3;
+  return 4;
 }
 
 function sortContacts(contacts) {
@@ -897,7 +901,10 @@ function contactsFromLegacyFields(merchant = {}) {
 }
 
 function contactsForMerchant(merchant = {}) {
-  return mergeContacts(contactsFromLegacyFields(merchant), merchant.contacts || []);
+  const storedContacts = validContacts(merchant.contacts || []);
+  const legacyContacts = contactsFromLegacyFields(merchant)
+    .filter((legacyContact) => !contactByType(storedContacts, legacyContact.type));
+  return mergeContacts(storedContacts, legacyContacts);
 }
 
 function contactByType(contacts, type) {
@@ -919,9 +926,9 @@ function renderContacts(contacts = []) {
       return `
         <div class="contact-card" data-contact-index="${index}">
           <div class="contact-primary-row">
-            <label class="contact-type-field">Type<input data-contact-field="type" value="${escapeHtml(contact.type || '')}" /></label>
+            <label class="contact-type-field">Type<select data-contact-field="type">${CONTACT_TYPES.map((type) => `<option value="${escapeHtml(type)}" ${normalizeContactType(contact.type) === type ? 'selected' : ''}>${escapeHtml(type)}</option>`).join('')}</select></label>
             <label class="contact-name-field">Name<input data-contact-field="name" value="${escapeHtml(contact.name || '')}" /></label>
-            ${primaryPhone !== undefined ? `<label class="contact-phone-field">Phone<span class="contact-input-copy"><input data-contact-phone value="${escapeHtml(primaryPhone)}" /><button class="secondary copy-contact-value" type="button" data-copy-value="${escapeHtml(primaryPhone)}">Copy</button></span></label>` : ''}
+            ${primaryPhone !== undefined ? `<label class="contact-phone-field">Phone<span class="contact-input-copy"><input data-contact-phone value="${escapeHtml(primaryPhone)}" /><button class="secondary copy-contact-value" type="button" data-copy-value="${escapeHtml(primaryPhone)}">Copy</button><button class="secondary remove-contact-method" type="button" data-remove-contact-phone title="Remove phone">Remove</button></span></label>` : ''}
             <span class="contact-actions">
               <button class="secondary compact-action add-contact-phone" type="button" data-add-contact-phone="${index}" title="Add phone">+ Phone</button>
               <button class="secondary compact-action add-contact-email" type="button" data-add-contact-email="${index}" title="Add email">+ Email</button>
@@ -929,10 +936,10 @@ function renderContacts(contacts = []) {
             </span>
           </div>
           <div class="contact-methods extra-contact-phones" data-contact-phones>
-            ${phones.slice(1).map((phone) => `<div class="contact-method-row"><label>Phone<input data-contact-phone value="${escapeHtml(phone)}" /></label><button class="secondary copy-contact-value" type="button" data-copy-value="${escapeHtml(phone)}">Copy</button></div>`).join('')}
+            ${phones.slice(1).map((phone) => `<div class="contact-method-row"><label>Phone<input data-contact-phone value="${escapeHtml(phone)}" /></label><button class="secondary copy-contact-value" type="button" data-copy-value="${escapeHtml(phone)}">Copy</button><button class="secondary remove-contact-method" type="button" data-remove-contact-phone title="Remove phone">Remove</button></div>`).join('')}
           </div>
           <div class="contact-methods contact-email-rows" data-contact-emails>
-            ${emails.map((email) => `<div class="contact-method-row"><label>Email<input data-contact-email type="email" value="${escapeHtml(email)}" /></label><button class="secondary copy-contact-value" type="button" data-copy-value="${escapeHtml(email)}">Copy</button></div>`).join('') || '<div class="empty mini-empty">No email addresses.</div>'}
+            ${emails.map((email) => `<div class="contact-method-row"><label>Email<input data-contact-email type="email" value="${escapeHtml(email)}" /></label><button class="secondary copy-contact-value" type="button" data-copy-value="${escapeHtml(email)}">Copy</button><button class="secondary remove-contact-method" type="button" data-remove-contact-email title="Remove email">Remove</button></div>`).join('') || '<div class="empty mini-empty">No email addresses.</div>'}
           </div>
         </div>
       `;
@@ -2274,7 +2281,7 @@ function formMerchant() {
   const menuPresentationDateTime = combinedMenuPresentationDateTime();
   const taskName = normalizeTask(fields.taskName.value);
   const contacts = readContacts();
-  const owner = contactByType(contacts, 'Owner') || contacts[0] || {};
+  const owner = contactByType(contacts, 'Owner') || {};
   const rep = contactByType(contacts, 'Rep') || {};
   return {
     ...(existing || {}),
@@ -3346,6 +3353,7 @@ el.contactsList.addEventListener('click', (event) => {
       <div class="contact-method-row">
         <label>Phone<input data-contact-phone value="" /></label>
         <button class="secondary copy-contact-value" type="button" data-copy-value="">Copy</button>
+        <button class="secondary remove-contact-method" type="button" data-remove-contact-phone title="Remove phone">Remove</button>
       </div>
     `);
     markSaveButtonsDirty();
@@ -3362,8 +3370,27 @@ el.contactsList.addEventListener('click', (event) => {
       <div class="contact-method-row">
         <label>Email<input data-contact-email type="email" value="" /></label>
         <button class="secondary copy-contact-value" type="button" data-copy-value="">Copy</button>
+        <button class="secondary remove-contact-method" type="button" data-remove-contact-email title="Remove email">Remove</button>
       </div>
     `);
+    markSaveButtonsDirty();
+    return;
+  }
+
+  const removePhoneButton = event.target.closest('[data-remove-contact-phone]');
+  if (removePhoneButton) {
+    if (blockReadOnly()) return;
+    const methodRow = removePhoneButton.closest('.contact-method-row');
+    if (methodRow) methodRow.remove();
+    else removePhoneButton.closest('.contact-phone-field')?.remove();
+    markSaveButtonsDirty();
+    return;
+  }
+
+  const removeEmailButton = event.target.closest('[data-remove-contact-email]');
+  if (removeEmailButton) {
+    if (blockReadOnly()) return;
+    removeEmailButton.closest('.contact-method-row')?.remove();
     markSaveButtonsDirty();
     return;
   }
