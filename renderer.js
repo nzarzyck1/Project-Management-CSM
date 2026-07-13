@@ -253,8 +253,8 @@ function applyTheme() {
   const isDark = localStorage.getItem('theme') === 'dark';
   document.body.classList.toggle('dark-mode', isDark);
   if (!darkModeToggle) return;
-  darkModeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
-  darkModeToggle.setAttribute('aria-pressed', String(isDark));
+  darkModeToggle.checked = isDark;
+  darkModeToggle.setAttribute('aria-label', isDark ? 'Dark Mode on' : 'Dark Mode off');
 }
 
 function applyWorkspaceSplit() {
@@ -2686,9 +2686,8 @@ el.appMenuBtn.addEventListener('click', (event) => {
   toggleAppMenu();
 });
 
-darkModeToggle?.addEventListener('click', () => {
-  const nextTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
-  localStorage.setItem('theme', nextTheme);
+darkModeToggle?.addEventListener('change', () => {
+  localStorage.setItem('theme', darkModeToggle.checked ? 'dark' : 'light');
   applyTheme();
 });
 

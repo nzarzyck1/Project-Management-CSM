@@ -29,10 +29,13 @@
           <button id="signOutBtn" class="secondary hidden" type="button">Sign Out</button>
           <button id="syncNowBtn" class="secondary" type="button">Sync Now</button>
         </section>
-        <button id="darkModeToggle" class="secondary" type="button" aria-pressed="false">Dark Mode</button>
         <div class="menu-wrap">
           <button id="appMenuBtn" class="secondary menu-button" type="button" aria-label="Open app menu" aria-expanded="false">...</button>
           <div id="appMenu" class="app-menu hidden">
+            <label class="menu-toggle-row">Dark Mode
+              <input id="darkModeToggle" type="checkbox" />
+              <span class="toggle-slider" aria-hidden="true"></span>
+            </label>
             <div class="app-menu-section">
               <strong>View</strong>
               <div id="viewTabs" class="segmented" role="tablist" aria-label="Views"></div>
